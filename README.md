@@ -6,6 +6,7 @@ Proyecto nuevo y aparte: llevar **Xnova**, un juego web de estrategia espacial e
 |---|---|
 | **Estado** | Investigación. Todavía no hay diseño ni código |
 | **Idioma** | Español |
+| **Notion** | [Xnova para Telegram — Investigación](https://app.notion.com/p/3f3476db16ab81e4bd89dc28f9b88a51). Todo lo del proyecto se sube ahí como texto (ver [CLAUDE.md](CLAUDE.md)) |
 
 ## Qué hay aquí
 
