@@ -17,9 +17,9 @@ Todo lo que se encontró sobre **Xnova**, el juego web de estrategia espacial en
 9. **En Telegram casi no hay nada parecido.** El único juego de este tipo que se encontró es SpaceHunt (@SpaceHuntBot), en inglés y ruso, con poca difusión.
 10. **Xnova ya es casi todo texto y números,** así que cabe bien en Telegram. Lo difícil será mandar flotas (en la web son tres pantallas). La gran ventaja es que el bot puede **avisar solo** cuando viene un ataque.
 
-## Documentos
+## Páginas de la investigación
 
-| # | Documento | Qué tiene |
+| # | Página | Qué tiene |
 |---|---|---|
 | 1 | [Historia y familia](01-historia-y-familia.md) | De dónde sale Xnova, todas las versiones parecidas, cómo está OGame hoy y qué dicen las licencias |
 | 2 | [Reglas y números](02-reglas-y-numeros.md) | El universo, los recursos y su producción, edificios, investigaciones, naves, defensas, tiempos, viajes, combate, botín, escombros, lunas, espionaje, misiones, expediciones, protección, oficiales, los errores del código y lo que agregó 2Moons |
