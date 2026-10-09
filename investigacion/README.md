@@ -2,7 +2,7 @@
 
 > [Volver al inicio](../README.md)
 
-Todo lo que se encontró sobre **Xnova**, el juego web de estrategia espacial en el que se farmea, y sobre las versiones parecidas, para llevarlo a **Telegram en formato de texto**. Es solo investigación: todavía no hay diseño.
+Todo lo que se encontró sobre **Xnova**, el juego web de estrategia espacial en el que se farmea, y sobre las versiones parecidas, para llevarlo a **Telegram en formato de texto**. De aquí salen los números del bot, que está en `xnova_bot/` (cómo ponerlo en marcha: [README del proyecto](../README.md)). Las reglas del bot que se apartan de Xnova son decisiones provisionales.
 
 ## Lo más importante
 
