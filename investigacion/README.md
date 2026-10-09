@@ -26,6 +26,7 @@ Todo lo que se encontró sobre **Xnova**, el juego web de estrategia espacial en
 | 3 | [El farmeo](03-el-farmeo.md) | El saqueo paso a paso con un ejemplo con números, los estilos de jugador, cómo se defiende el farmeado y las reglas que lo frenan |
 | 4 | [Lo que enganchaba y lo que espantaba](04-lo-que-enganchaba-y-lo-que-espantaba.md) | Los ganchos, las quejas de los jugadores, cómo se cobraba y 11 lecciones |
 | 5 | [Juegos parecidos y Telegram](05-juegos-parecidos-y-telegram.md) | Comparación de versiones, lo que ya existe en Telegram, qué cambia al pasar al texto y lo que habrá que decidir |
+| 7 | [Capturas que mandó el dueño (9-oct)](07-capturas-del-dueno.md) | Lo que muestran dos capturas de un bot de XNova en Telegram y en qué se diferencia del nuestro |
 
 ## Cómo se hizo
 
