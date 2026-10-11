@@ -21,7 +21,9 @@ Todas comparten el mismo esqueleto: minas, investigaciones, flotas, espionaje, s
 
 ## 2. Lo que ya existe en Telegram
 
-No se encontró ninguna copia de Xnova u OGame hecha para Telegram, ni de código abierto ni cerrada. Lo más parecido:
+**Corregido el 11-oct-2026.** La versión anterior de esta página decía que no se había encontrado ninguna copia de Xnova u OGame hecha para Telegram. Era falso: **existe @Xnova_Elite_bot**, en español, con **Mini App** (mapa de galaxia dibujado, filtros de Míos/Aquí/Todo, asteroides y lunas), canal de comunidad y blog en [t.me/xnova_blogs](https://t.me/xnova_blogs). El canal tenía **32 suscriptores** el día de la corrección, así que es un proyecto temprano y pequeño, no un rival asentado — pero va por delante en presentación. Lo que esto cambia: ya no somos los primeros, y el terreno donde se compite es el mapa, no las reglas.
+
+Otros parecidos:
 
 ### SpaceHunt (@SpaceHuntBot)
 
