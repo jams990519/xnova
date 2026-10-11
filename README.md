@@ -96,6 +96,9 @@ Los números son los de Xnova, sacados de su código (ver [Reglas y números](in
 
 ## Lo que falta (próximas versiones)
 
+- **La tienda, por dentro.** La fontanería de Telegram Stars está puesta (factura, pre-checkout, pago recibido, reembolso y registro a prueba de duplicados), pero **ningún paquete tiene precio ni contenido**: eso lo decide el dueño. Mientras el precio sea 0 la tienda se muestra cerrada y no se puede comprar nada.
+- **Más tipos de nave** cuando un jugador llegue al techo actual del juego.
+
 - Ataque en grupo (SAC) y defender el planeta de un aliado (mantener posición).
 - Misiles interplanetarios y de intercepción (ocultos por ahora).
 - Radar de largo alcance, puerta de salto y destrucción de lunas.
@@ -131,6 +134,6 @@ Los números son los de Xnova, sacados de su código (ver [Reglas y números](in
 
 ```bash
 pip install -r requirements-dev.txt
-pytest                      # 27 pruebas, incluido el bot completo contra un Telegram simulado
+pytest                      # 29 pruebas, incluido el bot completo contra un Telegram simulado
 TELEGRAM_BOT_TOKEN=... python -m xnova_bot.main
 ```

@@ -9,6 +9,7 @@ from __future__ import annotations
 from ..data.elements import BUILDING, DEFENSE, ELEMENTS, MISSILE, OFFICERS, RESEARCH, SHIP
 from ..db import MOON, PLANET, Planet, Player
 from ..engine import formulas
+from .. import shop as shop_catalog
 from ..game import BUILD_SLOTS, EXPEDITION_POSITION, Game, GameError
 from ..texts import (ATTACK, COLONIZE, DEPLOY, DESCRIPTIONS, EXPEDITION, GROUPS, HELP, MISSION_ICONS,
                      MISSIONS, NAMES,
@@ -325,19 +326,34 @@ def _changes(game: Game, player: Player, planet: Planet, element_id: int, option
     return out
 
 
-def _cost_block(planet: Planet, option: dict) -> list[str]:
-    """One line per resource, ticked when the planet already has it."""
+def _cost_block(game: Game, player: Player, planet: Planet, option: dict) -> tuple[list[str], float]:
+    """One line per resource, and how long the planet needs to cover the gap.
+
+    Knowing "te faltan 80, o sea 24 min" is what tells the player when to come
+    back, so the wait is worked out from this planet's own production.
+    """
     have = (planet.metal, planet.crystal, planet.deuterium)
-    out = []
+    rates = game.rates(planet, player)
+    keys = ("metal", "crystal", "deuterium")
+    out, waits = [], []
     for i, amount in enumerate(option["cost"]):
         if not amount:
             continue
-        ok = have[i] >= amount
-        short = "" if ok else f" (te faltan {num(amount - have[i])})"
-        out.append(f"{'✅' if ok else '❌'} {RES_ICONS[i]} {RES_NAMES[i]}: {num(amount)}{short}")
+        if have[i] >= amount:
+            out.append(f"✅ {RES_ICONS[i]} {RES_NAMES[i]}: {num(amount)}")
+            continue
+        gap = amount - have[i]
+        rate = rates[keys[i]]
+        if rate > 0:
+            wait = gap / rate * 3600
+            waits.append(wait)
+            detail = f"te faltan {num(gap)} · {duration(wait)}"
+        else:
+            detail = f"te faltan {num(gap)} · aquí no se produce"
+        out.append(f"❌ {RES_ICONS[i]} {RES_NAMES[i]}: {num(amount)} ({detail})")
     if option.get("energy"):
         out.append(f"⚡ Energía: {num(option['energy'])}")
-    return out
+    return out, (max(waits) if waits else 0.0)
 
 
 def element_detail(game: Game, player: Player, planet: Planet, element_id: int) -> Screen:
@@ -381,7 +397,8 @@ def element_detail(game: Game, player: Player, planet: Planet, element_id: int) 
         lines += ["", "📈 <b>Qué cambia</b>"] + changes
 
     lines += ["", "💰 <b>Coste</b>" + (" por unidad" if kind in ("s", "d") else "")]
-    lines += _cost_block(planet, option)
+    cost_lines, wait = _cost_block(game, player, planet, option)
+    lines += cost_lines
 
     rows: Rows = []
     queue_used = game.build_slots_used(planet) if kind == "b" else 0
@@ -394,7 +411,8 @@ def element_detail(game: Game, player: Player, planet: Planet, element_id: int) 
     elif busy:
         lines += ["", "⏳ Ya estás investigando. Espera a que termine o cancélalo."]
     elif not _ready(option):
-        lines += ["", "💸 No te alcanza todavía."]
+        lines += ["", "💸 No te alcanza todavía."
+                      + (f" A este ritmo lo tendrás en <b>{duration(wait)}</b>." if wait else "")]
     elif kind == "b":
         label = "✅ Construir" if not queue_used else f"➕ A la cola ({queue_used + 1}/{BUILD_SLOTS})"
         rows.append([(label, f"b:{element_id}")])
@@ -428,6 +446,30 @@ def info(kind: str) -> Screen:
 
 def units(game: Game, player: Player, planet: Planet, kind: str) -> Screen:
     return group_menu(game, player, planet, "s" if kind == SHIP else "d")
+
+
+def shop(game: Game, player: Player) -> Screen:
+    """The Stars shop. Shows closed while the owner has not priced anything."""
+    lines = ["⭐️ <b>Tienda</b>", "",
+             "Se paga con <b>Telegram Stars</b>, dentro de Telegram. No hay otra forma de pago: "
+             "Telegram solo permite Stars para cosas digitales.", ""]
+    rows: Rows = []
+    for item in shop_catalog.PACKAGES.values():
+        lines.append(f"<b>{esc(item.title)}</b> — {esc(item.description)}")
+        if not item.on_sale:
+            lines.append("    <i>todavía no está a la venta</i>")
+            continue
+        if item.once_per_player and game.has_bought(player.id, item.key):
+            lines.append("    <i>ya lo tienes</i>")
+            continue
+        lines.append(f"    {num(item.stars)} ⭐️")
+        rows.append([(f"⭐️ {item.title} · {num(item.stars)}", f"buy:{item.key}")])
+    if not rows:
+        lines += ["", "La tienda todavía no está abierta."]
+    lines += ["", f"Un paquete nunca puede darte más de {shop_catalog.MAX_BOUGHT_OFFICERS} oficiales en total, "
+                  "por muchos que compres."]
+    rows.append([("↩️ Volver", "m:ov")])
+    return "\n".join(lines), rows
 
 
 def market(game: Game, player: Player, planet: Planet) -> Screen:

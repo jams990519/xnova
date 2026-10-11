@@ -115,6 +115,20 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE planets ADD COLUMN build_queue TEXT NOT NULL DEFAULT '[]';
     """,
+    # 3: Telegram Stars purchases. charge_id is Telegram's own id for the
+    # payment and it is the primary key, so the same payment can never be
+    # granted twice however many times Telegram delivers the update.
+    """
+    CREATE TABLE purchases (
+        charge_id TEXT PRIMARY KEY,
+        player_id INTEGER NOT NULL,
+        package TEXT NOT NULL,
+        stars INTEGER NOT NULL,
+        at REAL NOT NULL,
+        refunded INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX purchases_player ON purchases(player_id, at);
+    """,
 ]
 
 
@@ -542,6 +556,25 @@ class Database:
 
     def prune_attack_log(self, before: float) -> None:
         self.conn.execute("DELETE FROM attack_log WHERE at<?", (before,))
+
+    # --- Purchases ------------------------------------------------------------
+
+    def add_purchase(self, charge_id: str, player_id: int, package: str, stars: int, at: float) -> bool:
+        """Record a payment. False means we had already seen this charge."""
+        cur = self.conn.execute(
+            "INSERT OR IGNORE INTO purchases (charge_id, player_id, package, stars, at) VALUES (?,?,?,?,?)",
+            (charge_id, player_id, package, stars, at))
+        return cur.rowcount > 0
+
+    def purchases_of(self, player_id: int) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            "SELECT * FROM purchases WHERE player_id=? AND refunded=0 ORDER BY at", (player_id,)).fetchall()
+
+    def get_purchase(self, charge_id: str) -> sqlite3.Row | None:
+        return self.conn.execute("SELECT * FROM purchases WHERE charge_id=?", (charge_id,)).fetchone()
+
+    def mark_refunded(self, charge_id: str) -> None:
+        self.conn.execute("UPDATE purchases SET refunded=1 WHERE charge_id=?", (charge_id,))
 
     # --- Meta -----------------------------------------------------------------
 

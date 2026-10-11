@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass, field
 from math import floor
 
-from . import reports
+from . import reports, shop
 from .config import Settings
 from .data.elements import (BUILDING, DEFENSE, ELEMENTS, MINER_XP_BUILDINGS, MISSILE, OFFICERS, ONE_PER_PLANET,
                             RESEARCH, SHIP)
@@ -467,6 +467,53 @@ class Game:
         self.touch(player)
         self.db.save_player(player)
         return planet, received
+
+    # --- Shop -------------------------------------------------------------
+
+    def has_bought(self, player_id: int, package_key: str) -> bool:
+        return any(row["package"] == package_key for row in self.db.purchases_of(player_id))
+
+    def bought_officers(self, player_id: int) -> int:
+        """Officers already handed over by paid packages, across every purchase."""
+        total = 0
+        for row in self.db.purchases_of(player_id):
+            item = shop.package(row["package"])
+            if item:
+                total += item.officer_choices
+        return total
+
+    def record_purchase(self, charge_id: str, player_id: int, package_key: str, stars: int) -> bool:
+        """Write the payment down. False means Telegram sent it twice."""
+        with self.db.conn:
+            return self.db.add_purchase(charge_id, player_id, package_key, stars, self.now())
+
+    @transactional
+    def grant_package(self, player_id: int, package_key: str) -> str:
+        """Hand over what the package gives. Returns what to tell the player."""
+        player = self.require_player(player_id)
+        item = shop.package(package_key)
+        if item is None:
+            return "Gracias. Ese paquete ya no existe; escríbele al dueño y te lo arregla a mano."
+        done = []
+        if any(item.resources):
+            planet = self._own_planet(player, player.current_planet)
+            self.refresh(planet, self.now(), player)
+            planet.metal += item.resources[0]
+            planet.crystal += item.resources[1]
+            planet.deuterium += item.resources[2]
+            self.db.save_planet(planet)
+            done.append(f"recursos en {planet.name}")
+        if item.officer_choices:
+            # The ceiling is the point: a bought bonus stays small on purpose.
+            allowed = max(0, shop.MAX_BOUGHT_OFFICERS - (self.bought_officers(player_id) - item.officer_choices))
+            give = min(item.officer_choices, allowed)
+            if give:
+                player.officer_points += give
+                self.db.save_player(player)
+                done.append(f"{give} punto(s) de oficial para elegir en 🎖 Oficiales")
+        if not done:
+            return "Gracias. Este paquete todavía no tiene contenido; el dueño lo está decidiendo."
+        return "Recibiste: " + " y ".join(done) + "."
 
     def lab_level(self, player: Player, planet: Planet) -> int:
         level = planet.level(31)

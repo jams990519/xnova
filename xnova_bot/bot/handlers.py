@@ -6,14 +6,16 @@ import functools
 import logging
 import re
 
-from telegram import (BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update)
+from telegram import (BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice,
+                      ReplyKeyboardMarkup, Update)
 from telegram.constants import ChatType, ParseMode
 from telegram.error import BadRequest, Forbidden, RetryAfter, TelegramError
 from telegram.ext import (Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes,
-                          MessageHandler, filters)
+                          MessageHandler, PreCheckoutQueryHandler, filters)
 
 from ..data.elements import DEFENSE, SHIP
 from ..db import MOON, PLANET
+from .. import shop
 from ..game import EXPEDITION_POSITION, Game, GameError, Notice
 from ..texts import (BY_SLUG, COLONIZE, DEPLOY, EXPEDITION, MISSIONS, NAMES, SPY, TRANSPORT, esc, num)
 from . import screens as sc
@@ -28,7 +30,7 @@ COMMANDS = [("start", "Empezar o volver al juego"), ("planeta", "Resumen del pla
             ("edificios", "Construir"), ("investigar", "Investigar"), ("hangar", "Naves"),
             ("defensa", "Defensas"), ("flota", "Flotas en vuelo y enviar"), ("galaxia", "Ver la galaxia"),
             ("informes", "Informes de batalla y espionaje"), ("ranking", "Ranking"), ("alianza", "Alianza"),
-            ("oficiales", "Oficiales"), ("ajustes", "Ajustes y vacaciones"), ("ayuda", "Cómo se juega")]
+            ("oficiales", "Oficiales"), ("ajustes", "Ajustes y vacaciones"), ("ayuda", "Cómo se juega"), ("tienda", "Tienda (Telegram Stars)")]
 COMMAND_ROUTES = {"planeta": "ov", "menu": "ov", "edificios": "bld", "investigar": "res", "hangar": "shp",
                   "defensa": "def", "flota": "flt", "galaxia": "gal", "informes": "rep", "ranking": "rank",
                   "alianza": "ally", "oficiales": "off", "ajustes": "set", "ayuda": "help"}
@@ -141,6 +143,8 @@ def build_screen(game: Game, player_id: int, route: str) -> sc.Screen:
         return sc.settings_screen(game, player)
     if route == "mkt":
         return sc.market(game, player, planet)
+    if route == "shop":
+        return sc.shop(game, player)
     return sc.overview(game, player, planet)
 
 
@@ -594,6 +598,15 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         _, done = game.order_units(user.id, player.current_planet, eid, int(parts[2]))
         toast = f"En cola: {num(done)} {NAMES[eid]}."
         await show(update, build_screen(game, user.id, "shp" if eid < 400 else "def"), edit=True)
+    elif head == "buy":
+        item = shop.package(parts[1])
+        if item is None or not item.on_sale:
+            raise GameError("Ese paquete no está a la venta.")
+        if item.once_per_player and game.has_bought(user.id, item.key):
+            raise GameError("Ese paquete es de una sola compra y ya lo tienes.")
+        await context.bot.send_invoice(
+            chat_id=update.effective_chat.id, title=item.title, description=item.description,
+            payload=item.key, currency="XTR", prices=[LabeledPrice(item.title, item.stars)])
     elif head == "mk":
         give, get = int(parts[1]), int(parts[2])
         context.user_data["await"] = {"kind": "trade", "give": give, "get": get}
@@ -768,6 +781,85 @@ async def _post_shutdown(app: Application) -> None:
         game.db.close()
 
 
+# ---------------------------------------------------------------------------
+# Shop (Telegram Stars)
+#
+# Telegram requires digital goods to be sold in Stars and nothing else, so
+# there is no provider token here and no other payment path anywhere. Three
+# hooks are needed: the invoice, the pre-checkout answer (Telegram gives ten
+# seconds to reply or the payment fails), and the successful payment.
+# ---------------------------------------------------------------------------
+
+@private_only
+async def cmd_shop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    game = game_of(context)
+    game.require_player(update.effective_user.id)
+    context.user_data.pop("await", None)
+    await show(update, sc.shop(game, game.require_player(update.effective_user.id)))
+
+
+async def on_precheckout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Telegram asks whether to go ahead. Ten seconds to answer or it fails."""
+    query = update.pre_checkout_query
+    game = game_of(context)
+    item = shop.package(query.invoice_payload)
+    if item is None or not item.on_sale:
+        await query.answer(ok=False, error_message="Ese paquete ya no está a la venta.")
+        return
+    if query.total_amount != item.stars:
+        await query.answer(ok=False, error_message="El precio cambió. Vuelve a abrir la tienda.")
+        return
+    player = game.player(query.from_user.id)
+    if player is None:
+        await query.answer(ok=False, error_message="Primero escribe /start para crear tu comandante.")
+        return
+    if item.once_per_player and game.has_bought(player.id, item.key):
+        await query.answer(ok=False, error_message="Ese paquete es de una sola compra y ya lo tienes.")
+        return
+    await query.answer(ok=True)
+
+
+@private_only
+async def on_paid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """The payment went through. Recording it is what makes it count, once."""
+    game = game_of(context)
+    payment = update.message.successful_payment
+    user = update.effective_user
+    charge = payment.telegram_payment_charge_id
+    item = shop.package(payment.invoice_payload)
+    first_time = game.record_purchase(charge, user.id, payment.invoice_payload, payment.total_amount)
+    if not first_time:
+        log.info("Repeated successful_payment for charge %s, ignored", charge)
+        return
+    log.info("Paid: player=%s package=%s stars=%s charge=%s", user.id, payment.invoice_payload,
+             payment.total_amount, charge)
+    granted = game.grant_package(user.id, payment.invoice_payload)
+    name = item.title if item else payment.invoice_payload
+    await send(update, f"⭐️ Pago recibido: <b>{esc(name)}</b>.\n"
+                       f"{esc(granted)}\n\n"
+                       f"Guarda este código por si hay que devolverlo: <code>{esc(charge)}</code>")
+
+
+@private_only
+async def cmd_refund(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/reembolso <codigo> — only the owner, and Telegram returns the Stars."""
+    game = game_of(context)
+    if update.effective_user.id not in game.s.admin_ids:
+        raise GameError("Ese comando no existe.")
+    parts = (update.message.text or "").split()
+    if len(parts) < 2:
+        await send(update, "Escribe <code>/reembolso CODIGO</code>.")
+        return
+    charge = parts[1]
+    row = game.db.get_purchase(charge)
+    if row is None:
+        raise GameError("No tengo ninguna compra con ese código.")
+    await context.bot.refund_star_payment(user_id=row["player_id"], telegram_payment_charge_id=charge)
+    with game.db.conn:
+        game.db.mark_refunded(charge)
+    await send(update, f"↩️ Devuelto. Telegram le reintegra {num(row['stars'])} ⭐️ al jugador.")
+
+
 def build_application(token: str, game: Game, request=None) -> Application:
     """Wire the handlers. ``request`` lets tests plug in a fake Telegram API."""
     builder = ApplicationBuilder().token(token).post_init(_post_init).post_shutdown(_post_shutdown)
@@ -780,6 +872,10 @@ def build_application(token: str, game: Game, request=None) -> Application:
     app.add_handler(CommandHandler("aviso", cmd_broadcast))
     app.add_handler(CommandHandler(list(COMMAND_ROUTES), cmd_route))
     app.add_handler(CommandHandler(list(BY_SLUG), cmd_element))
+    app.add_handler(CommandHandler("tienda", cmd_shop))
+    app.add_handler(CommandHandler("reembolso", cmd_refund))
+    app.add_handler(PreCheckoutQueryHandler(on_precheckout))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, on_paid))
     app.add_handler(CallbackQueryHandler(on_button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     app.add_error_handler(on_error)

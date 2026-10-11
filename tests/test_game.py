@@ -115,6 +115,30 @@ def test_trade_uses_the_fixed_rate(game):
         game.trade(1, planet.id, 0, 2, 2)  # too little to give one unit
 
 
+def test_purchase_is_recorded_only_once(game):
+    new_player(game, 1, "Ana")
+    # Telegram can deliver the same successful_payment more than once.
+    assert game.record_purchase("CH1", 1, "base", 100) is True
+    assert game.record_purchase("CH1", 1, "base", 100) is False
+    assert game.has_bought(1, "base")
+    assert not game.has_bought(1, "mando")
+
+
+def test_bought_officers_are_capped(game):
+    from xnova_bot import shop
+    new_player(game, 1, "Ana")
+    original = dict(shop.PACKAGES)
+    shop.PACKAGES["mando"] = dataclasses.replace(original["mando"], stars=1, officer_choices=5)
+    try:
+        game.record_purchase("CH1", 1, "mando", 1)
+        game.grant_package(1, "mando")
+        # However much a package promises, the ceiling holds.
+        assert game.db.get_player(1).officer_points == shop.MAX_BOUGHT_OFFICERS
+    finally:
+        shop.PACKAGES.clear()
+        shop.PACKAGES.update(original)
+
+
 def test_requirements_block(game):
     _, planet = new_player(game, 1, "Ana")
     give(game, planet.id, 10**6, 10**6, 10**6)
