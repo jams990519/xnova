@@ -245,13 +245,16 @@ def group_list(game: Game, player: Player, planet: Planet, kind: str, key: str) 
         return group_menu(game, player, planet, kind)
     options = {o["id"]: o for o in _options(game, player, planet, kind)}
     lines = [header(game, player, planet), f"{KIND_TITLE[kind]} · {label}", ""]
-    for eid in ids:
-        option = options.get(eid)
-        if option is None:
-            continue
+    # Lo que puedes tocar arriba; lo que esta bloqueado, al final.
+    abiertos = [i for i in ids if i in options and not options[i]["missing"]]
+    bloqueados = [i for i in ids if i in options and options[i]["missing"]]
+    for eid in abiertos + bloqueados:
+        option = options[eid]
         code = f"/{SLUGS[eid]}"
         if option["missing"]:
-            lines.append(f"🔒 {NAMES[eid]} — falta {_missing_text(option['missing'])} · {code}")
+            # En las bloqueadas el codigo va pegado al nombre: el "falta ..." es
+            # largo, se parte en el telefono y deja el codigo donde no se ve.
+            lines.append(f"🔒 {NAMES[eid]} · {code} — falta {_missing_text(option['missing'])}")
         elif kind in ("b", "r"):
             lines.append(f"{'✅' if _ready(option) else '💸'} {NAMES[eid]} {option['level']} → "
                          f"{option['next']} · ⏱ {duration(option['seconds'])} · {code}")
