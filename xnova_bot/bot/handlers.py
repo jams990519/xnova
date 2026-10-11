@@ -139,6 +139,8 @@ def build_screen(game: Game, player_id: int, route: str) -> sc.Screen:
         return sc.officers(game, player)
     if route == "set":
         return sc.settings_screen(game, player)
+    if route == "mkt":
+        return sc.market(game, player, planet)
     return sc.overview(game, player, planet)
 
 
@@ -286,6 +288,19 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE, pend
         await send(update, f"🛠 En cola: {num(done)} {NAMES[pending['id']]}.")
         route = "shp" if pending["id"] < 400 else "def"
         await show(update, build_screen(game, user.id, route))
+        return
+    if kind == "trade":
+        try:
+            amount = parse_amount(text)
+        except ValueError:
+            await send(update, "Escribe un número, por ejemplo 5000.")
+            return
+        context.user_data.pop("await", None)
+        player = game.require_player(user.id)
+        _, received = game.trade(user.id, player.current_planet, pending["give"], pending["get"], amount)
+        await send(update, f"🤝 Cambiados {num(amount)} de {sc.RES_NAMES[pending['give']].lower()} "
+                           f"por <b>{num(received)}</b> de {sc.RES_NAMES[pending['get']].lower()}.")
+        await show(update, build_screen(game, user.id, "mkt"))
         return
     if kind == "fleet_amount":
         try:
@@ -579,6 +594,13 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         _, done = game.order_units(user.id, player.current_planet, eid, int(parts[2]))
         toast = f"En cola: {num(done)} {NAMES[eid]}."
         await show(update, build_screen(game, user.id, "shp" if eid < 400 else "def"), edit=True)
+    elif head == "mk":
+        give, get = int(parts[1]), int(parts[2])
+        context.user_data["await"] = {"kind": "trade", "give": give, "get": get}
+        rate = game.trade_rate(give, get)
+        await query.message.reply_text(
+            f"Escribe cuánto {sc.RES_NAMES[give].lower()} quieres dar.\n"
+            f"Por cada 100 recibes {num(int(100 * rate))} de {sc.RES_NAMES[get].lower()}.")
     elif head == "ui":
         context.user_data["await"] = {"kind": "unit_amount", "id": int(parts[1])}
         await query.message.reply_text(f"Escribe cuántas unidades de {NAMES[int(parts[1])]} quieres.")

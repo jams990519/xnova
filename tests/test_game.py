@@ -95,6 +95,26 @@ def test_cancel_build_refunds(game):
     assert game.db.get_planet(planet.id).metal == pytest.approx(500)
 
 
+def test_trade_uses_the_fixed_rate(game):
+    _, planet = new_player(game, 1, "Ana")
+    give(game, planet.id, 100_000, 100_000, 100_000)
+    # 3 metal = 2 crystal = 1 deuterium, both ways, no commission
+    assert [int(100 * game.trade_rate(a, b)) for a, b in
+            ((0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1))] == [66, 33, 150, 50, 300, 200]
+    before = game.db.get_planet(planet.id)
+    _, got = game.trade(1, planet.id, 2, 0, 1000)
+    assert got == 3000
+    after = game.db.get_planet(planet.id)
+    assert after.deuterium == pytest.approx(before.deuterium - 1000)
+    assert after.metal == pytest.approx(before.metal + 3000)
+    with pytest.raises(GameError):
+        game.trade(1, planet.id, 0, 0, 100)  # same resource
+    with pytest.raises(GameError):
+        game.trade(1, planet.id, 0, 1, 10**9)  # more than you have
+    with pytest.raises(GameError):
+        game.trade(1, planet.id, 0, 2, 2)  # too little to give one unit
+
+
 def test_requirements_block(game):
     _, planet = new_player(game, 1, "Ana")
     give(game, planet.id, 10**6, 10**6, 10**6)

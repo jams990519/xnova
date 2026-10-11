@@ -21,11 +21,15 @@ from .data.elements import (BUILDING, DEFENSE, ELEMENTS, MINER_XP_BUILDINGS, MIS
 from .db import MOON, PLANET, Database, Fleet, Planet, Player
 from .engine import combat, formulas
 from .engine import missions as rules
-from .texts import (ATTACK, COLONIZE, DEPLOY, EXPEDITION, MISSIONS, NAMES, OFFICER_NAMES, RECYCLE, SPY, TRANSPORT,
+from .texts import (ATTACK, COLONIZE, DEPLOY, EXPEDITION, MISSIONS, NAMES, OFFICER_NAMES, RECYCLE,
+                    RES_NAMES, SPY, TRANSPORT,
                     duration, num)
 
 DAY = 86_400
 BUILD_SLOTS = 3  # the one under way plus two waiting
+# What one unit of each resource is worth, in metal. The classic 3:2:1 means
+# 3 metal = 2 crystal = 1 deuterium, so crystal is worth 1.5 and deuterium 3.
+TRADE_WEIGHT = (1.0, 1.5, 3.0)
 EXPEDITION_POSITION = 16
 NAME_RE = re.compile(r"^[\w áéíóúÁÉÍÓÚñÑüÜ.\-]{3,20}$")
 TAG_RE = re.compile(r"^[A-Za-z0-9]{2,8}$")
@@ -432,6 +436,37 @@ class Game:
                 self._begin_build(planet, player, nxt["id"], nxt["level"], nxt["cost"])
         self.db.save_planet(planet)
         return planet
+
+    @staticmethod
+    def trade_rate(give: int, get: int) -> float:
+        """How much of ``get`` one unit of ``give`` buys."""
+        return TRADE_WEIGHT[give] / TRADE_WEIGHT[get]
+
+    @transactional
+    def trade(self, player_id: int, planet_id: int, give: int, get: int, amount: int) -> tuple[Planet, int]:
+        """Swap resources at the fixed 3:2:1 rate. No commission."""
+        self._tick_unlocked()
+        player = self.require_player(player_id)
+        self._check_active(player)
+        planet = self._own_planet(player, planet_id)
+        self.refresh(planet, self.now(), player)
+        if give == get or not (0 <= give <= 2 and 0 <= get <= 2):
+            raise GameError("Elige dos recursos distintos.")
+        if amount <= 0:
+            raise GameError("Escribe una cantidad mayor que cero.")
+        names = ("metal", "crystal", "deuterium")
+        have = getattr(planet, names[give])
+        if have < amount:
+            raise GameError(f"Solo tienes {num(have)} de {RES_NAMES[give].lower()}.")
+        received = int(floor(amount * self.trade_rate(give, get)))
+        if received < 1:
+            raise GameError("Esa cantidad es tan poca que no da ni una unidad. Prueba con más.")
+        setattr(planet, names[give], have - amount)
+        setattr(planet, names[get], getattr(planet, names[get]) + received)
+        self.db.save_planet(planet)
+        self.touch(player)
+        self.db.save_player(player)
+        return planet, received
 
     def lab_level(self, player: Player, planet: Planet) -> int:
         level = planet.level(31)

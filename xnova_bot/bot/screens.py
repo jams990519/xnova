@@ -23,8 +23,9 @@ Screen = tuple[str, Rows]
 MENU = [["🪐 Planeta", "🏗 Edificios", "🔬 Investigar"],
         ["🚀 Hangar", "🛡 Defensa", "🛰 Flota"],
         ["🌌 Galaxia", "📨 Informes", "🏆 Ranking"],
-        ["🤝 Alianza", "🎖 Oficiales", "⚙️ Ajustes"]]
-MENU_ROUTES = {"🪐 Planeta": "ov", "🏗 Edificios": "bld", "🔬 Investigar": "res", "🚀 Hangar": "shp",
+        ["🤝 Alianza", "🎖 Oficiales", "⚙️ Ajustes"],
+        ["🛒 Mercado"]]
+MENU_ROUTES = {"🛒 Mercado": "mkt", "🪐 Planeta": "ov", "🏗 Edificios": "bld", "🔬 Investigar": "res", "🚀 Hangar": "shp",
                "🛡 Defensa": "def", "🛰 Flota": "flt", "🌌 Galaxia": "gal", "📨 Informes": "rep",
                "🏆 Ranking": "rank", "🤝 Alianza": "ally", "🎖 Oficiales": "off", "⚙️ Ajustes": "set"}
 
@@ -427,6 +428,27 @@ def info(kind: str) -> Screen:
 
 def units(game: Game, player: Player, planet: Planet, kind: str) -> Screen:
     return group_menu(game, player, planet, "s" if kind == SHIP else "d")
+
+
+def market(game: Game, player: Player, planet: Planet) -> Screen:
+    """The trader: swaps resources at the fixed 3:2:1 rate, no commission."""
+    lines = [header(game, player, planet), "",
+             "🧑‍🚀 <b>El mercader</b>", "",
+             "Cambia unos recursos por otros a la proporción de siempre, "
+             "<b>3 metal : 2 cristal : 1 deuterio</b>.",
+             "No cobra comisión.", "",
+             "<b>Por cada 100 que le des:</b>"]
+    for give in range(3):
+        # int(), no redondeo: el cartel tiene que decir lo mismo que paga la caja.
+        otros = " · ".join(f"{RES_NAMES[get].lower()} {num(int(100 * game.trade_rate(give, get)))}"
+                           for get in range(3) if get != give)
+        lines.append(f"• {RES_ICONS[give]} {RES_NAMES[give]} → {otros}")
+    lines += ["", "Toca un cambio y escribe cuánto quieres dar."]
+    buttons = [(f"{RES_ICONS[give]} → {RES_ICONS[get]}", f"mk:{give}:{get}")
+               for give in range(3) for get in range(3) if give != get]
+    rows = _rows(buttons, 3)
+    rows.append([("↩️ Volver", "m:ov")])
+    return "\n".join(lines), rows
 
 
 def unit_picker(game: Game, player: Player, planet: Planet, element_id: int) -> Screen:
