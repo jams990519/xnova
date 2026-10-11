@@ -15,7 +15,7 @@ from telegram.ext import (Application, ApplicationBuilder, CallbackQueryHandler,
 from ..data.elements import DEFENSE, SHIP
 from ..db import MOON, PLANET
 from ..game import EXPEDITION_POSITION, Game, GameError, Notice
-from ..texts import (COLONIZE, DEPLOY, EXPEDITION, MISSIONS, NAMES, SPY, TRANSPORT, esc, num)
+from ..texts import (BY_SLUG, COLONIZE, DEPLOY, EXPEDITION, MISSIONS, NAMES, SPY, TRANSPORT, esc, num)
 from . import screens as sc
 
 log = logging.getLogger(__name__)
@@ -194,6 +194,17 @@ async def cmd_route(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     game.require_player(update.effective_user.id)
     context.user_data.pop("await", None)
     await show(update, build_screen(game, update.effective_user.id, COMMAND_ROUTES.get(command, "ov")))
+
+
+@private_only
+async def cmd_element(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """The short codes shown in the lists: /metal, /cristal, /cligero..."""
+    game = game_of(context)
+    code = update.message.text.split()[0].lstrip("/").split("@")[0].lower()
+    game.require_player(update.effective_user.id)
+    context.user_data.pop("await", None)
+    player, planet = game.view_planet(update.effective_user.id)
+    await show(update, sc.element_detail(game, player, planet, BY_SLUG[code]))
 
 
 @private_only
@@ -546,6 +557,12 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         game.cancel_research(user.id)
         toast = "Investigación cancelada. Se devolvieron los recursos."
         await show(update, build_screen(game, user.id, "res"), edit=True)
+    elif head == "gr":
+        player, planet = game.view_planet(user.id)
+        await show(update, sc.group_list(game, player, planet, parts[1], parts[2]), edit=True)
+    elif head == "e":
+        player, planet = game.view_planet(user.id)
+        await show(update, sc.element_detail(game, player, planet, int(parts[1])), edit=True)
     elif head == "info":
         await show(update, sc.info(parts[1]), edit=True)
     elif head == "u":
@@ -735,6 +752,7 @@ def build_application(token: str, game: Game, request=None) -> Application:
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler("aviso", cmd_broadcast))
     app.add_handler(CommandHandler(list(COMMAND_ROUTES), cmd_route))
+    app.add_handler(CommandHandler(list(BY_SLUG), cmd_element))
     app.add_handler(CallbackQueryHandler(on_button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     app.add_error_handler(on_error)

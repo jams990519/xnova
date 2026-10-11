@@ -72,6 +72,45 @@ OFFICER_EFFECTS: dict[int, str] = {
     613: "+25 % de velocidad de las naves por nivel",
 }
 
+
+# Short codes the player can tap in a list: /metal opens the metal mine.
+# They are NOT registered in Telegram's command menu - 56 entries would bury
+# the real commands - but the bot answers them anyway.
+# Two clash with a screen command (/hangar and /defensa), so they differ.
+SLUGS: dict[int, str] = {
+    1: "metal", 2: "cristal", 3: "deuterio", 4: "solar", 12: "fusion", 14: "robots", 15: "taller",
+    21: "subirhangar", 22: "almetal", 23: "alcristal", 24: "aldeut", 31: "lab", 33: "terra",
+    34: "aliado", 41: "luna", 42: "radar", 43: "puerta", 44: "silo",
+    106: "espionaje", 108: "computacion", 109: "militar", 110: "tecdefensa", 111: "blindaje",
+    113: "energia", 114: "hiperespacio", 115: "combustion", 117: "impulso", 118: "propulsor",
+    120: "laser", 121: "ionica", 122: "plasma", 123: "redlab", 124: "expediciones", 199: "graviton",
+    202: "pcarga", 203: "gcarga", 204: "cligero", 205: "cpesado", 206: "crucero", 207: "batalla",
+    208: "colonizador", 209: "reciclador", 210: "sonda", 211: "bombardero", 212: "satelite",
+    213: "destructor", 214: "devastador", 215: "acorazado",
+    401: "lanzamisiles", 402: "laserp", 403: "laserg", 404: "gauss", 405: "canonionico",
+    406: "canonplasma", 407: "escudol", 408: "escudop", 502: "interceptor", 503: "interplanetario",
+}
+
+BY_SLUG: dict[str, int] = {slug: eid for eid, slug in SLUGS.items()}
+
+# Each screen opens on its groups; a group opens on its short list.
+# (key, label, element ids) - the key travels in the callback data.
+GROUPS: dict[str, list[tuple[str, str, tuple[int, ...]]]] = {
+    "b": [("min", "⛏ Minas y energía", (1, 2, 3, 4, 12)),
+          ("alm", "📦 Almacenes", (22, 23, 24)),
+          ("con", "🏗 Construcciones", (14, 15, 21, 31, 33, 34, 44)),
+          ("lun", "🌙 Luna", (41, 42, 43))],
+    "r": [("mot", "🚀 Motores", (115, 117, 118)),
+          ("arm", "🔫 Armas", (120, 121, 122)),
+          ("com", "⚔️ Combate", (109, 110, 111)),
+          ("avz", "🧪 Avanzadas", (113, 114, 199)),
+          ("imp", "🧭 Imperio", (106, 108, 123, 124))],
+    "s": [("gue", "⚔️ Guerra", (204, 205, 206, 207, 211, 213, 214, 215)),
+          ("civ", "📦 Carga y apoyo", (202, 203, 208, 209, 210, 212))],
+    "d": [("can", "🔫 Cañones", (401, 402, 403, 404, 405, 406)),
+          ("esc", "🏰 Escudos", (407, 408))],
+}
+
 ATTACK, ACS, TRANSPORT, DEPLOY, HOLD, SPY, COLONIZE, RECYCLE, DESTROY, EXPEDITION = 1, 2, 3, 4, 5, 6, 7, 8, 9, 15
 
 MISSIONS: dict[int, str] = {
@@ -83,7 +122,7 @@ MISSION_ICONS: dict[int, str] = {
     ATTACK: "⚔️", TRANSPORT: "📦", DEPLOY: "🛬", SPY: "🔭", COLONIZE: "🌱", RECYCLE: "♻️", EXPEDITION: "🌠",
 }
 
-RES_ICONS = ("🔩", "💎", "🧪")
+RES_ICONS = ("🟤", "🔷", "💧")  # metal, cristal, deuterio
 RES_NAMES = ("Metal", "Cristal", "Deuterio")
 
 
@@ -108,6 +147,12 @@ def short_num(value: float) -> str:
     if v >= 10_000:
         return f"{value / 1e3:.0f}k"
     return num(value)
+
+
+def hms(seconds: float) -> str:
+    """Exact clock time for a single job: 00:02:41."""
+    s = max(0, int(round(seconds)))
+    return f"{s // 3600:02d}:{s % 3600 // 60:02d}:{s % 60:02d}"
 
 
 def duration(seconds: float) -> str:

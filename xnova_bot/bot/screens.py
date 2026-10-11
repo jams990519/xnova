@@ -6,12 +6,15 @@ under Telegram's 64-byte limit.
 """
 from __future__ import annotations
 
-from ..data.elements import DEFENSE, ELEMENTS, OFFICERS, SHIP
+from ..data.elements import BUILDING, DEFENSE, ELEMENTS, MISSILE, OFFICERS, RESEARCH, SHIP
 from ..db import MOON, PLANET, Planet, Player
 from ..engine import formulas
 from ..game import EXPEDITION_POSITION, Game, GameError
-from ..texts import (ATTACK, COLONIZE, DEPLOY, DESCRIPTIONS, EXPEDITION, HELP, MISSION_ICONS, MISSIONS, NAMES,
-                     OFFICER_EFFECTS, OFFICER_NAMES, RECYCLE, RES_ICONS, SHORT, SPY, TRANSPORT, clock, coords,
+from ..texts import (ATTACK, COLONIZE, DEPLOY, DESCRIPTIONS, EXPEDITION, GROUPS, HELP, MISSION_ICONS,
+                     MISSIONS, NAMES,
+                     OFFICER_EFFECTS, OFFICER_NAMES, RECYCLE, RES_ICONS, RES_NAMES, SHORT, SLUGS,
+                     SPY, TRANSPORT, hms,
+                     clock, coords,
                      cost_line, duration, esc, num, short_num, units_line)
 
 Rows = list[list[tuple[str, str]]]
@@ -25,7 +28,7 @@ MENU_ROUTES = {"🪐 Planeta": "ov", "🏗 Edificios": "bld", "🔬 Investigar":
                "🛡 Defensa": "def", "🛰 Flota": "flt", "🌌 Galaxia": "gal", "📨 Informes": "rep",
                "🏆 Ranking": "rank", "🤝 Alianza": "ally", "🎖 Oficiales": "off", "⚙️ Ajustes": "set"}
 
-ICONS = {1: "🔩", 2: "💎", 3: "🧪", 4: "☀️", 12: "⚛️", 14: "🤖", 15: "🔬", 21: "🛠", 22: "📦", 23: "📦", 24: "🛢",
+ICONS = {1: "🟤", 2: "🔷", 3: "💧", 4: "☀️", 12: "⚛️", 14: "🤖", 15: "🔬", 21: "🛠", 22: "📦", 23: "📦", 24: "🛢",
          31: "🧫", 33: "🌍", 34: "🏛", 41: "🌙", 42: "📡", 43: "🌀", 44: "🚀"}
 
 
@@ -137,64 +140,270 @@ def production_screen(game: Game, player: Player, planet: Planet) -> Screen:
 # Buildings and research
 # ---------------------------------------------------------------------------
 
-def _level_list(title: str, options: list[dict], current: tuple[int, int, float] | None, game: Game,
-                prefix: str) -> tuple[list[str], list[tuple[str, str]]]:
+# ---------------------------------------------------------------------------
+# Three levels: screen -> group -> element
+#
+# A screen used to print every element with its cost and time, which on a
+# phone is a wall of text. Now it opens on its groups, a group shows a short
+# list with a /code per element, and the code opens that element on its own.
+# ---------------------------------------------------------------------------
+
+KIND_OF = {BUILDING: "b", RESEARCH: "r", SHIP: "s", DEFENSE: "d", MISSILE: "d"}
+KIND_ROUTE = {"b": "bld", "r": "res", "s": "shp", "d": "def"}
+KIND_TITLE = {"b": "🏗 <b>Edificios</b>", "r": "🔬 <b>Investigación</b>",
+              "s": "🚀 <b>Hangar</b>", "d": "🛡 <b>Defensa</b>"}
+LEGEND = "✅ te alcanza · 💸 no te alcanza · 🔒 bloqueado"
+
+
+def _options(game: Game, player: Player, planet: Planet, kind: str) -> list[dict]:
+    if kind == "b":
+        return game.building_options(player, planet)
+    if kind == "r":
+        return game.research_options(player, planet)
+    return game.unit_options(player, planet, SHIP if kind == "s" else DEFENSE)
+
+
+def _ready(option: dict) -> bool:
+    """Whether the player could start this one right now."""
+    if option["missing"]:
+        return False
+    return option["affordable"] if "affordable" in option else option.get("max", 0) > 0
+
+
+def _group_of(element_id: int) -> tuple[str, str, str] | None:
+    """(kind, group key, group label) for an element, or None if it has no group."""
+    kind = KIND_OF.get(ELEMENTS[element_id].kind)
+    for key, label, ids in GROUPS.get(kind, []):
+        if element_id in ids:
+            return kind, key, label
+    return None
+
+
+def _needs(planet: Planet, kind: str) -> str | None:
+    """The building this screen needs before it can show anything."""
+    if kind == "r" and (planet.is_moon or planet.level(31) < 1):
+        return "Laboratorio"
+    if kind in ("s", "d") and planet.level(21) < 1:
+        return "Hangar"
+    return None
+
+
+def group_menu(game: Game, player: Player, planet: Planet, kind: str) -> Screen:
+    """Level 1: the groups of a screen, with how many you can start in each."""
+    title = KIND_TITLE[kind]
+    if kind == "b":
+        used, total = game.fields(planet)
+        title += f" · campos {used}/{total}"
+    lines = [header(game, player, planet), title]
+    missing_building = _needs(planet, kind)
+    if missing_building:
+        lines += ["", f"Necesitas un <b>{missing_building}</b> en este planeta."]
+        return "\n".join(lines), [[("🏗 Edificios", "m:bld")]]
+
     t = game.now()
-    lines, buttons, locked = [title, ""], [], []
-    if current:
-        eid, level, end = current
-        lines.append(f"⏳ <b>{NAMES[eid]} {level}</b> — termina en {duration(end - t)}")
-        lines.append("")
-    for o in options:
-        if o["missing"]:
-            locked.append(f"{NAMES[o['id']]} ({_missing_text(o['missing'])})")
+    tail: Rows = []
+    if kind == "b" and planet.build_id:
+        lines += ["", f"⏳ <b>{NAMES[planet.build_id]} {planet.build_level}</b> — "
+                      f"termina en {duration(planet.build_end - t)}"]
+        tail.append([("✖️ Cancelar construcción", "bc")])
+    if kind == "r" and player.research_id:
+        lines += ["", f"⏳ <b>{NAMES[player.research_id]} {player.research_level}</b> — "
+                      f"termina en {duration(player.research_end - t)}"]
+        tail.append([("✖️ Cancelar investigación", "rc")])
+    if kind in ("s", "d") and planet.shipyard:
+        lines += ["", "⏳ En cola: " + ", ".join(f"{num(i['count'] - i['done'])} "
+                                                f"{SHORT.get(i['id'], NAMES[i['id']])}"
+                                                for i in planet.shipyard)]
+    if kind == "d" and planet.level(44):
+        used, total = game.missile_slots(planet)
+        lines.append(f"🚀 Silo de misiles: {used}/{total} espacios.")
+
+    options = {o["id"]: o for o in _options(game, player, planet, kind)}
+    buttons = []
+    for key, label, ids in GROUPS[kind]:
+        here = [options[i] for i in ids if i in options]
+        if not here:
             continue
-        state = "✅" if o["affordable"] else "💸"
-        if current and current[0] == o["id"]:
-            state = "⏳"
-        lines.append(f"{state} <b>{NAMES[o['id']]}</b> {o['level']} → {o['next']}\n"
-                     f"    {cost_line(o['cost'], o['energy'])} · ⏱ {duration(o['seconds'])}")
-        if not current:
-            buttons.append((f"⬆️ {NAMES[o['id']][:20]} {o['next']}", f"{prefix}:{o['id']}"))
-    if locked:
-        lines += ["", "🔒 <b>Bloqueados:</b> " + "; ".join(locked)]
-    return lines, buttons
+        buttons.append((f"{label} · {sum(1 for o in here if _ready(o))}/{len(here)}", f"gr:{kind}:{key}"))
+    lines += ["", "El número de cada grupo dice cuántos puedes empezar ahora."]
+
+    rows = _rows(buttons, 1) + tail
+    last = [("🔄 Actualizar", f"m:{KIND_ROUTE[kind]}")]
+    if kind in ("b", "r"):
+        last.append(("ℹ️ Qué hace cada uno", f"info:{kind}"))
+    rows.append(last)
+    return "\n".join(lines), rows
+
+
+def group_list(game: Game, player: Player, planet: Planet, kind: str, key: str) -> Screen:
+    """Level 2: one short line per element, each with its /code."""
+    entry = next((g for g in GROUPS.get(kind, []) if g[0] == key), None)
+    if entry is None:
+        return group_menu(game, player, planet, kind)
+    _, label, ids = entry
+    if _needs(planet, kind):
+        return group_menu(game, player, planet, kind)
+    options = {o["id"]: o for o in _options(game, player, planet, kind)}
+    lines = [header(game, player, planet), f"{KIND_TITLE[kind]} · {label}", ""]
+    for eid in ids:
+        option = options.get(eid)
+        if option is None:
+            continue
+        code = f"/{SLUGS[eid]}"
+        if option["missing"]:
+            lines.append(f"🔒 {NAMES[eid]} — falta {_missing_text(option['missing'])} · {code}")
+        elif kind in ("b", "r"):
+            lines.append(f"{'✅' if _ready(option) else '💸'} {NAMES[eid]} {option['level']} → "
+                         f"{option['next']} · ⏱ {duration(option['seconds'])} · {code}")
+        else:
+            lines.append(f"{'✅' if _ready(option) else '💸'} {NAMES[eid]} · tienes {num(option['have'])}"
+                         f" · ⏱ {duration(option['seconds'])} · {code}")
+    lines += ["", LEGEND, "Toca un código para abrirlo."]
+    return "\n".join(lines), [[("↩️ Volver", f"m:{KIND_ROUTE[kind]}"),
+                               ("🔄 Actualizar", f"gr:{kind}:{key}")]]
+
+
+def _prod(game: Game, player: Player, planet: Planet, buildings: dict[int, int]) -> dict[str, float]:
+    return formulas.production(buildings, planet.production, planet.ships.get(212, 0), planet.temp_max,
+                               game.s.economy_speed, player.officer(601), player.officer(603))
+
+
+def _arrow(before: float, after: float, unit: str = "") -> str:
+    return f"{num(before)}{unit} → <b>{num(after)}{unit}</b>"
+
+
+def _changes(game: Game, player: Player, planet: Planet, element_id: int, option: dict) -> list[str]:
+    """The '¿qué cambia?' bullets for one more level of this element."""
+    element = ELEMENTS[element_id]
+    out: list[str] = []
+    if element.kind != BUILDING:
+        return out
+    nxt = option["next"]
+
+    if element_id in (1, 2, 3, 4, 12, 212) and not planet.is_moon:
+        before = _prod(game, player, planet, planet.buildings)
+        after = _prod(game, player, planet, {**planet.buildings, element_id: nxt})
+        for i, key in enumerate(("metal", "crystal", "deuterium")):
+            if round(after[key]) != round(before[key]):
+                out.append(f"• Produce {RES_NAMES[i].lower()}: {_arrow(before[key], after[key], '/h')}")
+        if round(after["energy_needed"]) != round(before["energy_needed"]):
+            out.append(f"• Consume: {_arrow(before['energy_needed'], after['energy_needed'], ' ⚡')}")
+        if round(after["energy_produced"]) != round(before["energy_produced"]):
+            out.append(f"• Da energía: {_arrow(before['energy_produced'], after['energy_produced'], ' ⚡')}")
+        libre_antes = before["energy_produced"] - before["energy_needed"]
+        libre_ahora = after["energy_produced"] - after["energy_needed"]
+        if round(libre_antes) != round(libre_ahora):
+            out.append(f"• Energía libre: {_arrow(libre_antes, libre_ahora, ' ⚡')}")
+        return out
+
+    if element_id in (22, 23, 24):
+        i = (22, 23, 24).index(element_id)
+        storer = player.officer(607)
+        out.append(f"• Guarda {RES_NAMES[i].lower()}: "
+                   f"{_arrow(formulas.storage_capacity(option['level'], storer), formulas.storage_capacity(nxt, storer))}")
+        return out
+
+    if element_id in (33, 41):
+        used, total = game.fields(planet)
+        add = formulas.TERRAFORMER_FIELDS if element_id == 33 else formulas.LUNAR_BASE_FIELDS
+        out.append(f"• Campos: {_arrow(total, total + add)}")
+        return out
+
+    if element_id == 44:
+        used, total = game.missile_slots(planet)
+        out.append(f"• Espacios de misiles: {_arrow(total, total + 10)}")
+        return out
+
+    return out
+
+
+def _cost_block(planet: Planet, option: dict) -> list[str]:
+    """One line per resource, ticked when the planet already has it."""
+    have = (planet.metal, planet.crystal, planet.deuterium)
+    out = []
+    for i, amount in enumerate(option["cost"]):
+        if not amount:
+            continue
+        ok = have[i] >= amount
+        short = "" if ok else f" (te faltan {num(amount - have[i])})"
+        out.append(f"{'✅' if ok else '❌'} {RES_ICONS[i]} {RES_NAMES[i]}: {num(amount)}{short}")
+    if option.get("energy"):
+        out.append(f"⚡ Energía: {num(option['energy'])}")
+    return out
+
+
+def element_detail(game: Game, player: Player, planet: Planet, element_id: int) -> Screen:
+    """Level 3: one element on its own, with what changes and the button that starts it."""
+    element = ELEMENTS.get(element_id)
+    if element is None:
+        return overview(game, player, planet)
+    kind = KIND_OF.get(element.kind, "b")
+    found = _group_of(element_id)
+    back = ("⬅️ Volver", f"gr:{kind}:{found[1]}" if found else f"m:{KIND_ROUTE[kind]}")
+    icon = ICONS.get(element_id, "🔹")
+    head = f"{icon} <b>{NAMES[element_id]}</b>"
+
+    blocker = _needs(planet, kind)
+    if blocker:
+        return f"{head}\nNecesitas un <b>{blocker}</b> en este planeta.", [[("🏗 Edificios", "m:bld")]]
+
+    options = {o["id"]: o for o in _options(game, player, planet, kind)}
+    option = options.get(element_id)
+    if option is None:
+        return (f"{head}\n" + ("Los misiles llegan en una próxima versión." if element.kind == MISSILE
+                               else "Esto no se puede construir aquí."), [[back]])
+
+    lines = [head]
+    if DESCRIPTIONS.get(element_id):
+        lines.append(f"<i>{DESCRIPTIONS[element_id]}</i>")
+    if kind in ("b", "r"):
+        lines.append(f"🔼 Nivel <b>{option['level']}</b> → <b>{option['next']}</b>")
+    else:
+        lines.append(f"🔼 Tienes <b>{num(option['have'])}</b>")
+    lines.append(f"⏱ Tiempo: <b>{hms(option['seconds'])}</b>")
+
+    changes = _changes(game, player, planet, element_id, option) if kind in ("b", "r") else []
+    if kind in ("s", "d"):
+        changes = [f"• Ataque {num(element.attack)} · Escudo {num(element.shield)} · Casco {num(element.hull)}"]
+        if element.cargo:
+            changes.append(f"• Carga: {num(element.cargo)}")
+        if element.drives:
+            changes.append(f"• Velocidad: {num(formulas.ship_speed(element_id, player.research))}")
+    if changes:
+        lines += ["", "📈 <b>Qué cambia</b>"] + changes
+
+    lines += ["", "💰 <b>Coste</b>" + (" por unidad" if kind in ("s", "d") else "")]
+    lines += _cost_block(planet, option)
+
+    rows: Rows = []
+    busy = (kind == "b" and planet.build_id) or (kind == "r" and player.research_id)
+    if option["missing"]:
+        lines += ["", f"🔒 Te falta: {_missing_text(option['missing'])}"]
+    elif busy:
+        lines += ["", "⏳ Ya hay algo en marcha aquí. Espera a que termine o cancélalo."]
+    elif not _ready(option):
+        lines += ["", "💸 No te alcanza todavía."]
+    elif kind in ("b", "r"):
+        rows.append([(f"✅ {'Construir' if kind == 'b' else 'Investigar'}", f"{kind}:{element_id}")])
+    else:
+        rows.append([(f"✅ Fabricar (máx {short_num(option['max'])})", f"u:{element_id}")])
+    rows.append([("🔄 Actualizar", f"e:{element_id}")])
+    rows.append([back])
+    return "\n".join(lines), rows
 
 
 def buildings(game: Game, player: Player, planet: Planet) -> Screen:
-    options = game.building_options(player, planet)
-    current = (planet.build_id, planet.build_level, planet.build_end) if planet.build_id else None
-    used, total = game.fields(planet)
-    lines, buttons = _level_list(f"{header(game, player, planet)}\n🏗 <b>Edificios</b> · campos {used}/{total}",
-                                 options, current, game, "b")
-    rows = _rows(buttons, 2)
-    if current:
-        rows.append([("✖️ Cancelar construcción", "bc")])
-    rows.append([("🔄 Actualizar", "m:bld"), ("ℹ️ Qué hace cada uno", "info:b")])
-    return "\n".join(lines), rows
+    return group_menu(game, player, planet, "b")
 
 
 def research(game: Game, player: Player, planet: Planet) -> Screen:
-    if planet.is_moon or planet.level(31) < 1:
-        return (f"{header(game, player, planet)}\n\n🔬 Necesitas un <b>Laboratorio</b> en este planeta para "
-                f"investigar.", [[("🏗 Edificios", "m:bld")]])
-    options = game.research_options(player, planet)
-    current = None
-    if player.research_id:
-        current = (player.research_id, player.research_level, player.research_end)
-    lines, buttons = _level_list(f"{header(game, player, planet)}\n🔬 <b>Investigación</b> "
-                                 f"(laboratorio {game.lab_level(player, planet)})", options, current, game, "r")
-    rows = _rows(buttons, 2)
-    if current:
-        rows.append([("✖️ Cancelar investigación", "rc")])
-    rows.append([("🔄 Actualizar", "m:res"), ("ℹ️ Qué hace cada una", "info:r")])
-    return "\n".join(lines), rows
+    return group_menu(game, player, planet, "r")
 
 
 def info(kind: str) -> Screen:
-    ids = [e.id for e in ELEMENTS.values() if e.kind == ("building" if kind == "b" else "research")]
+    ids = [e.id for e in ELEMENTS.values() if e.kind == (BUILDING if kind == "b" else RESEARCH)]
     lines = [f"ℹ️ <b>{'Edificios' if kind == 'b' else 'Investigaciones'}</b>", ""]
-    lines += [f"• <b>{NAMES[i]}</b>: {DESCRIPTIONS.get(i, '')}" for i in ids]
+    lines += [f"• <b>{NAMES[i]}</b>: {DESCRIPTIONS.get(i, '')} /{SLUGS[i]}" for i in ids]
     return "\n".join(lines), [[("↩️ Volver", "m:bld" if kind == "b" else "m:res")]]
 
 
@@ -203,43 +412,7 @@ def info(kind: str) -> Screen:
 # ---------------------------------------------------------------------------
 
 def units(game: Game, player: Player, planet: Planet, kind: str) -> Screen:
-    title = "🚀 <b>Hangar: naves</b>" if kind == SHIP else "🛡 <b>Defensa</b>"
-    lines = [header(game, player, planet), title, ""]
-    if planet.level(21) < 1:
-        lines.append("Necesitas un <b>Hangar</b> en este planeta.")
-        return "\n".join(lines), [[("🏗 Edificios", "m:bld")]]
-    if planet.shipyard:
-        left = 0.0
-        for i, item in enumerate(planet.shipyard):
-            remaining = item["count"] - item["done"]
-            left += remaining * item["unit"] - (item.get("progress", 0.0) if i == 0 else 0)
-        first = planet.shipyard[0]
-        lines.append("⏳ En cola: " + ", ".join(f"{num(i['count'] - i['done'])} {SHORT.get(i['id'], NAMES[i['id']])}"
-                                               for i in planet.shipyard))
-        lines.append(f"    siguiente {NAMES[first['id']]} en "
-                     f"{duration(first['unit'] - first.get('progress', 0.0))}, todo en {duration(left)}")
-        lines.append("")
-    if kind == DEFENSE and planet.level(44):
-        used, total = game.missile_slots(planet)
-        lines.append(f"Silo: {used}/{total} espacios.")
-    buttons, locked = [], []
-    for o in game.unit_options(player, planet, kind):
-        if o["missing"]:
-            locked.append(f"{NAMES[o['id']]} ({_missing_text(o['missing'])})")
-            continue
-        element = ELEMENTS[o["id"]]
-        stats = f"⚔️ {num(element.attack)} 🛡 {num(element.shield)} ❤️ {num(element.hull)}"
-        if element.cargo and kind == SHIP:
-            stats += f" 📦 {short_num(element.cargo)}"
-        lines.append(f"<b>{NAMES[o['id']]}</b> · tienes {num(o['have'])}\n"
-                     f"    {cost_line(o['cost'])} · ⏱ {duration(o['seconds'])}\n    {stats}")
-        buttons.append((f"➕ {SHORT.get(o['id'], NAMES[o['id']])[:18]} (máx {short_num(o['max'])})",
-                        f"u:{o['id']}"))
-    if locked:
-        lines += ["", "🔒 <b>Bloqueados:</b> " + "; ".join(locked)]
-    rows = _rows(buttons, 2)
-    rows.append([("🔄 Actualizar", "m:shp" if kind == SHIP else "m:def")])
-    return "\n".join(lines), rows
+    return group_menu(game, player, planet, "s" if kind == SHIP else "d")
 
 
 def unit_picker(game: Game, player: Player, planet: Planet, element_id: int) -> Screen:
