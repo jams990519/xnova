@@ -101,6 +101,13 @@ Los números son los de Xnova, sacados de su código (ver [Reglas y números](in
 - Bloquear a un jugador en los mensajes privados.
 - Nombres propios para el juego (por ahora se usan los de la versión en español de OGame).
 
+## Decisiones pendientes del dueño
+
+- **Las capturas que mandó el 9-oct** (ver [Capturas que mandó el dueño](investigacion/07-capturas-del-dueno.md)): ¿copiar ese diseño, es otro bot suyo o son solo ideas? No eligió todavía. Recomendación: copiar el diseño (resumen del planeta con 16 botones debajo y el porcentaje de cada almacén) y agregar, en este orden, Imperio, derribar un nivel, cola de obras, simulador de batalla, clases, bandeja de mensajes y guías, y al final el mercado. Las clases son de OGame moderno, no de Xnova, pero no tocan el combate.
+- **Rama `main`:** el repositorio no la tiene; crearla necesita su sí. Mientras tanto, Railway puede usar la rama `claude/happy-pasteur-wnywxf`.
+- **Reglas provisionales:** confirmar o cambiar las de la tabla de arriba.
+- **Railway:** él crea el servicio, pone `TELEGRAM_BOT_TOKEN` y conecta el volumen en `/data` (pasos arriba).
+
 ## Para programadores
 
 - **Python 3.12** y [python-telegram-bot](https://python-telegram-bot.org) 21. Base de datos **SQLite**.
