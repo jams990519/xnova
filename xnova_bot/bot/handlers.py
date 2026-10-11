@@ -543,6 +543,11 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         game.start_build(user.id, player.current_planet, int(parts[1]))
         toast = f"Construyendo {NAMES[int(parts[1])]}."
         await show(update, build_screen(game, user.id, "bld"), edit=True)
+    elif head == "bq":
+        player = game.require_player(user.id)
+        game.cancel_build(user.id, player.current_planet, int(parts[1]))
+        toast = "Obra quitada de la cola. Se devolvieron los recursos."
+        await show(update, build_screen(game, user.id, "bld"), edit=True)
     elif head == "bc":
         player = game.require_player(user.id)
         game.cancel_build(user.id, player.current_planet)

@@ -111,6 +111,10 @@ MIGRATIONS: list[str] = [
     CREATE INDEX attack_log_idx ON attack_log(attacker_id, target_planet_id, at);
     CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     """,
+    # 2: the building queue (up to two more waiting behind the active one)
+    """
+    ALTER TABLE planets ADD COLUMN build_queue TEXT NOT NULL DEFAULT '[]';
+    """,
 ]
 
 
@@ -190,6 +194,7 @@ class Planet:
     build_level: int | None = None
     build_start: float | None = None
     build_end: float | None = None
+    build_queue: list[dict] = field(default_factory=list)
     shipyard: list[dict] = field(default_factory=list)
     shipyard_ts: float | None = None
     created_at: float = 0.0
@@ -263,6 +268,7 @@ def _from_row(cls, row: sqlite3.Row):
         data[name] = _load_map(data[name])
     if cls is Planet:
         data["shipyard"] = json.loads(data["shipyard"] or "[]")
+        data["build_queue"] = json.loads(data.get("build_queue") or "[]")
     return cls(**data)
 
 
@@ -270,7 +276,7 @@ def _to_values(obj) -> dict[str, Any]:
     out = {}
     for f in fields(obj):
         value = getattr(obj, f.name)
-        if f.name in obj.JSON or f.name == "shipyard":
+        if f.name in obj.JSON or f.name in ("shipyard", "build_queue"):
             value = _dump(value)
         out[f.name] = value
     return out

@@ -201,7 +201,7 @@ HELP = """<b>Cómo se juega</b>
 Eres el dueño de un planeta. Todo avanza con el tiempo, aunque no estés conectado.
 
 🔩 <b>Recursos.</b> Las minas producen metal, cristal y deuterio cada hora. Necesitan energía: sube la planta solar a la par de las minas.
-🏗 <b>Edificios.</b> Un edificio a la vez por planeta. Cada nivel cuesta más y tarda más.
+🏗 <b>Edificios.</b> Hasta 3 obras a la vez por planeta: la que trabaja y dos esperando turno. Cada nivel cuesta más y tarda más.
 🔬 <b>Investigación.</b> Una a la vez. Vale para todos tus planetas.
 🚀 <b>Hangar y defensa.</b> Construye naves para atacar y llevar carga, y defensas para proteger el planeta.
 🛰 <b>Flota.</b> Envía naves a otras coordenadas: atacar, espiar, transportar, desplegar, colonizar, reciclar escombros o expediciones.

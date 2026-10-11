@@ -60,6 +60,7 @@ Son cinco pasos. No hace falta dominio ni configurar nada más.
 - **Recursos.** Metal, cristal, deuterio y energía, que se producen cada hora aunque nadie esté conectado. Porcentaje de producción por mina, almacenes y avisos de almacén lleno.
 - **Edificios** (18), **investigaciones** (16), **naves** (14) y **defensas** (8), con los costos, tiempos y requisitos de Xnova.
 - **Hangar con cola:** las naves y defensas salen una por una con el tiempo.
+- **Cola de obras:** hasta 3 construcciones a la vez por planeta (la que trabaja y dos esperando). Se paga al encolar, se puede quitar cualquiera y devuelve lo pagado, y se pueden encadenar requisitos (poner Fábrica de robots 2 y el Hangar detrás).
 - **Flotas:** atacar, espiar, transportar, desplegar, colonizar, reciclar escombros y expediciones. Se envían paso a paso con botones: naves → destino → misión → velocidad → carga → confirmar. Se pueden hacer volver.
 - **Batallas** por rondas con fuego rápido, escudos y explosiones, botín, escombros, reconstrucción de defensas y **lunas**.
 - **Espionaje** con informe por niveles y, desde el informe, **⚡ Saqueo rápido**: manda justo las naves de carga necesarias.
@@ -129,6 +130,6 @@ Los números son los de Xnova, sacados de su código (ver [Reglas y números](in
 
 ```bash
 pip install -r requirements-dev.txt
-pytest                      # 23 pruebas, incluido el bot completo contra un Telegram simulado
+pytest                      # 26 pruebas, incluido el bot completo contra un Telegram simulado
 TELEGRAM_BOT_TOKEN=... python -m xnova_bot.main
 ```

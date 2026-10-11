@@ -25,6 +25,7 @@ from .texts import (ATTACK, COLONIZE, DEPLOY, EXPEDITION, MISSIONS, NAMES, OFFIC
                     duration, num)
 
 DAY = 86_400
+BUILD_SLOTS = 3  # the one under way plus two waiting
 EXPEDITION_POSITION = 16
 NAME_RE = re.compile(r"^[\w áéíóúÁÉÍÓÚñÑüÜ.\-]{3,20}$")
 TAG_RE = re.compile(r"^[A-Za-z0-9]{2,8}$")
@@ -303,17 +304,20 @@ class Game:
         return element.moon if planet.is_moon else element.planet
 
     def building_options(self, player: Player, planet: Planet) -> list[dict]:
+        # Levels count what is already queued, so a second copy shows its real
+        # next level and price, and chained requirements read as available.
+        levels = self.projected_levels(planet)
         out = []
         for element in ELEMENTS.values():
             if element.kind != BUILDING or not self.can_build_here(planet, element.id):
                 continue
-            level = planet.level(element.id)
+            level = levels.get(element.id, 0)
             cost = formulas.level_cost(element.id, level + 1)
             seconds = formulas.building_seconds(cost, planet.level(14), planet.level(15), self.s.economy_speed,
                                                 player.officer(605))
             out.append({"id": element.id, "level": level, "next": level + 1, "cost": cost,
                         "energy": formulas.level_energy_cost(element.id, level + 1), "seconds": seconds,
-                        "missing": self.missing(player, planet, element.id),
+                        "missing": self.missing_queued(player, planet, element.id),
                         "affordable": self._affordable(planet, cost)})
         return out
 
@@ -337,8 +341,39 @@ class Game:
         if player.vacation:
             raise GameError("Estás en modo vacaciones. Desactívalo en ⚙️ Ajustes para jugar.")
 
+    def build_slots_used(self, planet: Planet) -> int:
+        return (1 if planet.build_id else 0) + len(planet.build_queue)
+
+    def projected_levels(self, planet: Planet) -> dict[int, int]:
+        """Levels the planet will have once the queue is done."""
+        levels = dict(planet.buildings)
+        if planet.build_id:
+            levels[planet.build_id] = planet.build_level
+        for item in planet.build_queue:
+            levels[item["id"]] = item["level"]
+        return levels
+
+    def missing_queued(self, player: Player, planet: Planet, element_id: int) -> dict[int, int]:
+        """Requirements still missing once the queue is done, so jobs can be chained."""
+        levels = self.projected_levels(planet)
+        out = {}
+        for req, level in ELEMENTS[element_id].requires.items():
+            have = player.tech(req) if ELEMENTS[req].kind == RESEARCH else levels.get(req, 0)
+            if have < level:
+                out[req] = level
+        return out
+
+    def _begin_build(self, planet: Planet, player: Player, element_id: int, level: int,
+                     cost: tuple[int, int, int], t: float | None = None) -> None:
+        t = self.now() if t is None else t
+        planet.build_id, planet.build_level = element_id, level
+        planet.build_start = t
+        planet.build_end = t + formulas.building_seconds(tuple(cost), planet.level(14), planet.level(15),
+                                                         self.s.economy_speed, player.officer(605))
+
     @transactional
     def start_build(self, player_id: int, planet_id: int, element_id: int) -> Planet:
+        """Start a building, or put it behind the ones already going (BUILD_SLOTS in all)."""
         self._tick_unlocked()
         player = self.require_player(player_id)
         self._check_active(player)
@@ -346,18 +381,19 @@ class Game:
         element = ELEMENTS.get(element_id)
         if not element or element.kind != BUILDING or not self.can_build_here(planet, element_id):
             raise GameError("Ese edificio no se puede construir aquí.")
-        if planet.build_id:
-            raise GameError(f"Ya se está construyendo {NAMES[planet.build_id]}. Espera a que termine.")
-        if self.missing(player, planet, element_id):
+        busy = self.build_slots_used(planet)
+        if busy >= BUILD_SLOTS:
+            raise GameError(f"La cola de construcción está llena ({BUILD_SLOTS} obras).")
+        if self.missing_queued(player, planet, element_id):
             raise GameError("Todavía no cumples los requisitos.")
         used, total = self.fields(planet)
-        if used >= total:
+        if used + busy >= total:
             raise GameError("No quedan campos libres en este planeta.")
         if element_id in (15, 21) and planet.shipyard:
             raise GameError("No se puede mejorar el hangar ni el taller automatizado mientras el hangar trabaja.")
         if element_id == 31 and player.research_id and player.research_planet == planet.id:
             raise GameError("No se puede mejorar el laboratorio mientras investiga.")
-        level = planet.level(element_id) + 1
+        level = self.projected_levels(planet).get(element_id, 0) + 1
         cost = formulas.level_cost(element_id, level)
         energy = formulas.level_energy_cost(element_id, level)
         if energy:
@@ -366,25 +402,34 @@ class Game:
                 raise GameError(f"Necesitas {num(energy)} de energía libre.")
         if not self._affordable(planet, cost):
             raise GameError("No tienes recursos suficientes.")
+        # Paid when queued, like the shipyard: a queue that cannot pay would stall.
         self._pay(planet, cost)
-        t = self.now()
-        planet.build_id, planet.build_level = element_id, level
-        planet.build_start = t
-        planet.build_end = t + formulas.building_seconds(cost, planet.level(14), planet.level(15),
-                                                         self.s.economy_speed, player.officer(605))
+        if planet.build_id:
+            planet.build_queue.append({"id": element_id, "level": level, "cost": list(cost)})
+        else:
+            self._begin_build(planet, player, element_id, level, cost)
         self.db.save_planet(planet)
         self.touch(player)
         self.db.save_player(player)
         return planet
 
     @transactional
-    def cancel_build(self, player_id: int, planet_id: int) -> Planet:
+    def cancel_build(self, player_id: int, planet_id: int, index: int = -1) -> Planet:
+        """index -1 cancels the one under way; 0+ cancels that one from the queue."""
         player = self.require_player(player_id)
         planet = self._own_planet(player, planet_id)
-        if not planet.build_id:
-            raise GameError("No hay nada en construcción.")
-        self._refund(planet, formulas.level_cost(planet.build_id, planet.build_level))
-        planet.build_id = planet.build_level = planet.build_start = planet.build_end = None
+        if index >= 0:
+            if index >= len(planet.build_queue):
+                raise GameError("Esa obra ya no está en la cola.")
+            self._refund(planet, tuple(planet.build_queue.pop(index)["cost"]))
+        else:
+            if not planet.build_id:
+                raise GameError("No hay nada en construcción.")
+            self._refund(planet, formulas.level_cost(planet.build_id, planet.build_level))
+            planet.build_id = planet.build_level = planet.build_start = planet.build_end = None
+            if planet.build_queue:
+                nxt = planet.build_queue.pop(0)
+                self._begin_build(planet, player, nxt["id"], nxt["level"], nxt["cost"])
         self.db.save_planet(planet)
         return planet
 
@@ -810,6 +855,9 @@ class Game:
         element_id, level = planet.build_id, planet.build_level
         planet.buildings[element_id] = level
         planet.build_id = planet.build_level = planet.build_start = planet.build_end = None
+        if planet.build_queue:
+            nxt = planet.build_queue.pop(0)
+            self._begin_build(planet, owner, nxt["id"], nxt["level"], nxt["cost"], t)
         self.db.save_planet(planet)
         if element_id in MINER_XP_BUILDINGS:
             owner.xp_miner += sum(formulas.level_cost(element_id, level)) / 1000

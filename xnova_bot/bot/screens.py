@@ -9,7 +9,7 @@ from __future__ import annotations
 from ..data.elements import BUILDING, DEFENSE, ELEMENTS, MISSILE, OFFICERS, RESEARCH, SHIP
 from ..db import MOON, PLANET, Planet, Player
 from ..engine import formulas
-from ..game import EXPEDITION_POSITION, Game, GameError
+from ..game import BUILD_SLOTS, EXPEDITION_POSITION, Game, GameError
 from ..texts import (ATTACK, COLONIZE, DEPLOY, DESCRIPTIONS, EXPEDITION, GROUPS, HELP, MISSION_ICONS,
                      MISSIONS, NAMES,
                      OFFICER_EFFECTS, OFFICER_NAMES, RECYCLE, RES_ICONS, RES_NAMES, SHORT, SLUGS,
@@ -205,7 +205,11 @@ def group_menu(game: Game, player: Player, planet: Planet, kind: str) -> Screen:
     if kind == "b" and planet.build_id:
         lines += ["", f"⏳ <b>{NAMES[planet.build_id]} {planet.build_level}</b> — "
                       f"termina en {duration(planet.build_end - t)}"]
-        tail.append([("✖️ Cancelar construcción", "bc")])
+        tail.append([(f"✖️ Cancelar {NAMES[planet.build_id][:16]}", "bc")])
+        for i, item in enumerate(planet.build_queue):
+            lines.append(f"🕑 <b>{NAMES[item['id']]} {item['level']}</b> — esperando turno")
+            tail.append([(f"✖️ Quitar {NAMES[item['id']][:16]} {item['level']}", f"bq:{i}")])
+        lines.append(f"🏗 Cola: {game.build_slots_used(planet)}/{BUILD_SLOTS} obras")
     if kind == "r" and player.research_id:
         lines += ["", f"⏳ <b>{NAMES[player.research_id]} {player.research_level}</b> — "
                       f"termina en {duration(player.research_end - t)}"]
@@ -379,15 +383,22 @@ def element_detail(game: Game, player: Player, planet: Planet, element_id: int) 
     lines += _cost_block(planet, option)
 
     rows: Rows = []
-    busy = (kind == "b" and planet.build_id) or (kind == "r" and player.research_id)
+    queue_used = game.build_slots_used(planet) if kind == "b" else 0
+    full = kind == "b" and queue_used >= BUILD_SLOTS
+    busy = kind == "r" and player.research_id
     if option["missing"]:
         lines += ["", f"🔒 Te falta: {_missing_text(option['missing'])}"]
+    elif full:
+        lines += ["", f"⏳ La cola está llena ({BUILD_SLOTS} obras). Espera o quita una."]
     elif busy:
-        lines += ["", "⏳ Ya hay algo en marcha aquí. Espera a que termine o cancélalo."]
+        lines += ["", "⏳ Ya estás investigando. Espera a que termine o cancélalo."]
     elif not _ready(option):
         lines += ["", "💸 No te alcanza todavía."]
-    elif kind in ("b", "r"):
-        rows.append([(f"✅ {'Construir' if kind == 'b' else 'Investigar'}", f"{kind}:{element_id}")])
+    elif kind == "b":
+        label = "✅ Construir" if not queue_used else f"➕ A la cola ({queue_used + 1}/{BUILD_SLOTS})"
+        rows.append([(label, f"b:{element_id}")])
+    elif kind == "r":
+        rows.append([("✅ Investigar", f"r:{element_id}")])
     else:
         rows.append([(f"✅ Fabricar (máx {short_num(option['max'])})", f"u:{element_id}")])
     rows.append([("🔄 Actualizar", f"e:{element_id}")])

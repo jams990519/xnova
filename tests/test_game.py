@@ -43,14 +43,49 @@ def test_resources_accumulate(game, clock):
 def test_build_and_finish(game, clock):
     _, planet = new_player(game, 1, "Ana")
     game.start_build(1, planet.id, 1)
-    with pytest.raises(GameError):
-        game.start_build(1, planet.id, 2)  # one at a time
     planet = game.db.get_planet(planet.id)
     assert planet.metal == pytest.approx(440)
     clock.advance(HOUR)
     notices = game.tick()
     assert game.db.get_planet(planet.id).level(1) == 1
     assert any("Mina de metal" in n.text for n in notices)
+
+
+def test_build_queue_holds_three(game, clock):
+    _, planet = new_player(game, 1, "Ana")
+    give(game, planet.id, 10**6, 10**6, 10**6)
+    for _ in range(3):
+        game.start_build(1, planet.id, 1)  # levels stack: 1, 2, 3
+    planet = game.db.get_planet(planet.id)
+    assert planet.build_level == 1
+    assert [item["level"] for item in planet.build_queue] == [2, 3]
+    with pytest.raises(GameError, match="llena"):
+        game.start_build(1, planet.id, 2)
+    clock.advance(10 * HOUR)
+    game.tick()
+    assert game.db.get_planet(planet.id).level(1) == 3
+
+
+def test_build_queue_chains_requirements(game, clock):
+    _, planet = new_player(game, 1, "Ana")
+    give(game, planet.id, 10**6, 10**6, 10**6)
+    game.start_build(1, planet.id, 14)
+    game.start_build(1, planet.id, 14)
+    game.start_build(1, planet.id, 21)  # the shipyard needs robotics 2, still queued
+    clock.advance(10 * 24 * HOUR)
+    game.tick()
+    done = game.db.get_planet(planet.id)
+    assert done.level(14) == 2 and done.level(21) == 1
+
+
+def test_cancel_queued_build_refunds(game):
+    _, planet = new_player(game, 1, "Ana")
+    give(game, planet.id, 10**6, 10**6, 10**6)
+    game.start_build(1, planet.id, 1)
+    before = game.db.get_planet(planet.id).metal
+    game.start_build(1, planet.id, 1)
+    game.cancel_build(1, planet.id, 0)
+    assert game.db.get_planet(planet.id).metal == pytest.approx(before)
 
 
 def test_cancel_build_refunds(game):
