@@ -96,10 +96,10 @@ Los números son los de Xnova, sacados de su código (ver [Reglas y números](in
 
 - Ataque en grupo (SAC) y defender el planeta de un aliado (mantener posición).
 - Misiles interplanetarios y de intercepción (ocultos por ahora).
-- Sensor phalanx, salto cuántico y destrucción de lunas.
+- Radar de largo alcance, puerta de salto y destrucción de lunas.
 - Los oficiales finales de Xnova (Búnker, Destructor, Saqueador, Emperador) y la nave Supernova.
 - Bloquear a un jugador en los mensajes privados.
-- Nombres propios para el juego (por ahora se usan los de la versión en español de OGame).
+- Un universo con nombres propios. El 11-oct se renombró lo que identificaba a OGame (y el Devastador, que antes llevaba un nombre de Lucasfilm); los que quedan —mina de metal, crucero, bombardero— son términos genéricos del género. Falta decidir si el juego tendrá un tema propio de arriba abajo.
 
 ## Decisiones pendientes del dueño
 

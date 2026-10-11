@@ -1,7 +1,9 @@
 """Everything the player reads that is not a sentence built on the fly.
 
-Names follow the Spanish OGame naming used in the research. They are kept in
-one place so they can be renamed later without touching the engine.
+Generic genre words (metal mine, cruiser, bomber) are kept as they are. The
+names that identified OGame, and the ship that belonged to Lucasfilm, were
+renamed on 2026-10-11. Everything the player reads lives here, so renaming
+never touches the engine.
 """
 from __future__ import annotations
 
@@ -14,28 +16,28 @@ except ImportError:  # pragma: no cover
     ZoneInfo = None  # type: ignore
 
 NAMES: dict[int, str] = {
-    1: "Mina de metal", 2: "Mina de cristal", 3: "Sintetizador de deuterio", 4: "Planta de energía solar",
-    12: "Planta de fusión", 14: "Fábrica de robots", 15: "Fábrica de nanobots", 21: "Hangar",
+    1: "Mina de metal", 2: "Mina de cristal", 3: "Extractor de deuterio", 4: "Planta de energía solar",
+    12: "Planta de fusión", 14: "Fábrica de robots", 15: "Taller automatizado", 21: "Hangar",
     22: "Almacén de metal", 23: "Almacén de cristal", 24: "Contenedor de deuterio", 31: "Laboratorio",
-    33: "Terraformador", 34: "Depósito de alianza", 41: "Base lunar", 42: "Sensor phalanx",
-    43: "Salto cuántico", 44: "Silo de misiles",
+    33: "Terraformador", 34: "Almacén aliado", 41: "Base lunar", 42: "Radar de largo alcance",
+    43: "Puerta de salto", 44: "Silo de misiles",
     106: "Espionaje", 108: "Computación", 109: "Militar", 110: "Defensa", 111: "Blindaje", 113: "Energía",
     114: "Hiperespacio", 115: "Motor de combustión", 117: "Motor de impulso", 118: "Propulsor hiperespacial",
-    120: "Láser", 121: "Iónica", 122: "Plasma", 123: "Red de investigación intergaláctica",
+    120: "Láser", 121: "Iónica", 122: "Plasma", 123: "Red de laboratorios",
     124: "Expediciones", 199: "Gravitón",
     202: "Nave pequeña de carga", 203: "Nave grande de carga", 204: "Cazador ligero", 205: "Cazador pesado",
     206: "Crucero", 207: "Nave de batalla", 208: "Colonizador", 209: "Reciclador", 210: "Sonda de espionaje",
-    211: "Bombardero", 212: "Satélite solar", 213: "Destructor", 214: "Estrella de la muerte",
+    211: "Bombardero", 212: "Satélite solar", 213: "Destructor", 214: "Devastador",
     215: "Acorazado",
     401: "Lanzamisiles", 402: "Láser pequeño", 403: "Láser grande", 404: "Cañón gauss", 405: "Cañón iónico",
-    406: "Cañón de plasma", 407: "Cúpula pequeña de protección", 408: "Cúpula grande de protección",
+    406: "Cañón de plasma", 407: "Escudo planetario ligero", 408: "Escudo planetario pesado",
     502: "Misil de intercepción", 503: "Misil interplanetario",
 }
 
 SHORT: dict[int, str] = {
     202: "P. carga", 203: "G. carga", 204: "C. ligero", 205: "C. pesado", 206: "Crucero", 207: "N. batalla",
     208: "Colonizador", 209: "Reciclador", 210: "Sonda", 211: "Bombardero", 212: "Satélite",
-    213: "Destructor", 214: "E. muerte", 215: "Acorazado",
+    213: "Destructor", 214: "Devastador", 215: "Acorazado",
 }
 
 DESCRIPTIONS: dict[int, str] = {
@@ -53,7 +55,7 @@ DESCRIPTIONS: dict[int, str] = {
     117: "+20 % de velocidad (motor de impulso).", 118: "+30 % de velocidad (propulsor hiperespacial).",
     120: "Abre armas láser.", 121: "Abre armas iónicas.", 122: "Abre armas de plasma.",
     123: "Suma laboratorios de otros planetas.", 124: "Abre las expediciones.",
-    199: "Abre la Estrella de la muerte. Pide 300.000 de energía.",
+    199: "Abre el Devastador. Pide 300.000 de energía.",
 }
 
 OFFICER_NAMES: dict[int, str] = {

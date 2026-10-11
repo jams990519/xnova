@@ -354,7 +354,7 @@ class Game:
         if used >= total:
             raise GameError("No quedan campos libres en este planeta.")
         if element_id in (15, 21) and planet.shipyard:
-            raise GameError("No se puede mejorar el hangar ni los nanobots mientras el hangar trabaja.")
+            raise GameError("No se puede mejorar el hangar ni el taller automatizado mientras el hangar trabaja.")
         if element_id == 31 and player.research_id and player.research_planet == planet.id:
             raise GameError("No se puede mejorar el laboratorio mientras investiga.")
         level = planet.level(element_id) + 1

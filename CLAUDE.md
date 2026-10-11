@@ -37,4 +37,5 @@ Pedido del dueño (8-oct-2026):
 ## 5. Git
 
 - Se trabaja en la rama asignada a la sesión. Nunca `push --force`.
-- El repositorio todavía no tiene rama `main`: crearla necesita el sí del dueño.
+- La rama `main` existe desde el 11-oct-2026, creada con el sí del dueño. Railway todavía sigue a
+  `claude/happy-pasteur-wnywxf`; cambiarlo a `main` lo hace el dueño desde el panel.
