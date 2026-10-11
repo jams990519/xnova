@@ -129,6 +129,10 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX purchases_player ON purchases(player_id, at);
     """,
+    # 4: officer picks bought in the shop and not spent yet
+    """
+    ALTER TABLE players ADD COLUMN officer_grants INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 
@@ -157,6 +161,7 @@ class Player:
     research_end: float | None = None
     officers: dict[int, int] = field(default_factory=dict)
     officer_points: int = 0
+    officer_grants: int = 0
     xp_miner: float = 0.0
     lvl_miner: int = 1
     xp_raid: int = 0

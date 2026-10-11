@@ -883,6 +883,13 @@ def officers(game: Game, player: Player) -> Screen:
              "<i>La experiencia de minero sube al terminar minas y almacenes (1 por cada 1.000 recursos). "
              "La de saqueador, con cada ataque.</i>", ""]
     buttons = []
+    if player.officer_grants:
+        lines += [f"⭐️ <b>Tienes {player.officer_grants} oficial(es) comprado(s) por elegir.</b>",
+                  "Solo entre estos, y entra directo a su nivel máximo:", ""]
+        for oid in shop_catalog.BUYABLE_OFFICERS:
+            if player.officer(oid) < OFFICERS[oid].max_level:
+                buttons.append((f"⭐️ {OFFICER_NAMES[oid]}", f"og:{oid}"))
+        lines.append("")
     for officer in OFFICERS.values():
         level = player.officer(officer.id)
         missing = game.officer_missing(player, officer.id)

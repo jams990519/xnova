@@ -598,6 +598,10 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         _, done = game.order_units(user.id, player.current_planet, eid, int(parts[2]))
         toast = f"En cola: {num(done)} {NAMES[eid]}."
         await show(update, build_screen(game, user.id, "shp" if eid < 400 else "def"), edit=True)
+    elif head == "og":
+        game.claim_officer(user.id, int(parts[1]))
+        toast = "Oficial comprado al máximo."
+        await show(update, build_screen(game, user.id, "off"), edit=True)
     elif head == "buy":
         item = shop.package(parts[1])
         if item is None or not item.on_sale:

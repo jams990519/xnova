@@ -504,16 +504,36 @@ class Game:
             self.db.save_planet(planet)
             done.append(f"recursos en {planet.name}")
         if item.officer_choices:
-            # The ceiling is the point: a bought bonus stays small on purpose.
-            allowed = max(0, shop.MAX_BOUGHT_OFFICERS - (self.bought_officers(player_id) - item.officer_choices))
-            give = min(item.officer_choices, allowed)
+            # A pick, not loose officer points: with points the player would
+            # just buy the Geologist, which is what the ceiling exists to stop.
+            total = min(shop.MAX_BOUGHT_OFFICERS, self.bought_officers(player_id))
+            before = min(shop.MAX_BOUGHT_OFFICERS, self.bought_officers(player_id) - item.officer_choices)
+            give = total - before
             if give:
-                player.officer_points += give
+                player.officer_grants += give
                 self.db.save_player(player)
-                done.append(f"{give} punto(s) de oficial para elegir en 🎖 Oficiales")
+                done.append(f"{give} oficial(es) a elegir en 🎖 Oficiales")
         if not done:
             return "Gracias. Este paquete todavía no tiene contenido; el dueño lo está decidiendo."
         return "Recibiste: " + " y ".join(done) + "."
+
+    @transactional
+    def claim_officer(self, player_id: int, officer_id: int) -> Player:
+        """Spend a bought pick: that officer jumps straight to its maximum."""
+        player = self.require_player(player_id)
+        if player.officer_grants < 1:
+            raise GameError("No tienes ningún oficial comprado por elegir.")
+        if officer_id not in shop.BUYABLE_OFFICERS:
+            raise GameError("Ese oficial no se puede comprar. Se gana jugando.")
+        officer = OFFICERS.get(officer_id)
+        if officer is None:
+            raise GameError("Ese oficial no existe.")
+        if player.officer(officer_id) >= officer.max_level:
+            raise GameError("Ya tienes ese oficial al máximo. Elige otro y no gastas la compra.")
+        player.officers[officer_id] = officer.max_level
+        player.officer_grants -= 1
+        self.db.save_player(player)
+        return player
 
     def lab_level(self, player: Player, planet: Planet) -> int:
         level = planet.level(31)

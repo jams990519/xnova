@@ -96,7 +96,8 @@ Los números son los de Xnova, sacados de su código (ver [Reglas y números](in
 
 ## Lo que falta (próximas versiones)
 
-- **La tienda, por dentro.** La fontanería de Telegram Stars está puesta (factura, pre-checkout, pago recibido, reembolso y registro a prueba de duplicados), pero **ningún paquete tiene precio ni contenido**: eso lo decide el dueño. Mientras el precio sea 0 la tienda se muestra cerrada y no se puede comprar nada.
+- **Los números de la tienda.** Faltan tres precios en Stars y dos cantidades de recursos. El resto está decidido: el paquete chico da solo recursos, el mediano un oficial, el grande oficial y recursos; solo se pueden comprar Comandante, Espía, General, Constructor y Científico, entran a su nivel máximo, y nadie pasa de 2 oficiales comprados. El Geólogo y el Almirante no se venden: duplican la partida y se ganan jugando.
+- **La fontanería de Telegram Stars** ya está puesta (factura, pre-checkout, pago recibido, reembolso y registro a prueba de duplicados), pero **ningún paquete tiene precio ni contenido**: eso lo decide el dueño. Mientras el precio sea 0 la tienda se muestra cerrada y no se puede comprar nada.
 - **Más tipos de nave** cuando un jugador llegue al techo actual del juego.
 
 - Ataque en grupo (SAC) y defender el planeta de un aliado (mantener posición).
@@ -134,6 +135,6 @@ Los números son los de Xnova, sacados de su código (ver [Reglas y números](in
 
 ```bash
 pip install -r requirements-dev.txt
-pytest                      # 29 pruebas, incluido el bot completo contra un Telegram simulado
+pytest                      # 30 pruebas, incluido el bot completo contra un Telegram simulado
 TELEGRAM_BOT_TOKEN=... python -m xnova_bot.main
 ```

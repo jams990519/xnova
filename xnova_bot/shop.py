@@ -36,16 +36,26 @@ class Package:
 # whose price is zero, so nothing can be bought by accident.
 PACKAGES: dict[str, Package] = {
     "base": Package("base", "Paquete de apoyo",
-                    "Un empujón de recursos para arrancar."),
+                    "Solo recursos, para arrancar con impulso.",
+                    once_per_player=False),
     "mando": Package("mando", "Paquete de mando",
-                     "Un oficial a tu elección, al máximo."),
+                     "Un oficial a tu elección, al máximo.",
+                     officer_choices=1),
     "flota": Package("flota", "Paquete de flota",
-                     "Un oficial a tu elección y un empujón de recursos."),
+                     "Un oficial a tu elección, al máximo, y recursos.",
+                     officer_choices=1),
 }
 
 # Hard ceiling, whatever the packages end up giving: nobody can buy their way
 # past this many officers. Keeps the bought bonus small on purpose.
 MAX_BOUGHT_OFFICERS = 2
+
+# Only these can be bought, and this is the whole anti pay-to-win decision.
+# The Geologist (+100% production at max) and the Admiral (+100% attack,
+# shield and hull) are NOT here: buying either one doubles your game for good,
+# which is exactly what the project research says drove players away. They are
+# earned by playing, like the rest of Xnova's officers.
+BUYABLE_OFFICERS = (611, 610, 613, 605, 606)  # Comandante, Espia, General, Constructor, Cientifico
 
 
 def package(key: str) -> Package | None:

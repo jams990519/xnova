@@ -133,7 +133,29 @@ def test_bought_officers_are_capped(game):
         game.record_purchase("CH1", 1, "mando", 1)
         game.grant_package(1, "mando")
         # However much a package promises, the ceiling holds.
-        assert game.db.get_player(1).officer_points == shop.MAX_BOUGHT_OFFICERS
+        assert game.db.get_player(1).officer_grants == shop.MAX_BOUGHT_OFFICERS
+    finally:
+        shop.PACKAGES.clear()
+        shop.PACKAGES.update(original)
+
+
+def test_bought_officer_is_limited_and_maxed(game):
+    from xnova_bot import shop
+    from xnova_bot.data.elements import OFFICERS
+    new_player(game, 1, "Ana")
+    original = dict(shop.PACKAGES)
+    shop.PACKAGES["mando"] = dataclasses.replace(original["mando"], stars=1, officer_choices=1)
+    try:
+        game.record_purchase("CH1", 1, "mando", 1)
+        game.grant_package(1, "mando")
+        with pytest.raises(GameError):
+            game.claim_officer(1, 601)  # the Geologist is earned, never bought
+        game.claim_officer(1, 611)      # Comandante: +6 fleets, and nothing else
+        player = game.db.get_player(1)
+        assert player.officer(611) == OFFICERS[611].max_level
+        assert player.officer_grants == 0
+        with pytest.raises(GameError):
+            game.claim_officer(1, 613)  # nothing left to spend
     finally:
         shop.PACKAGES.clear()
         shop.PACKAGES.update(original)
