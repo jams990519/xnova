@@ -15,6 +15,7 @@ Proyecto nuevo y aparte: **Xnova**, el juego web de estrategia espacial en el qu
 | [investigacion/](investigacion/README.md) | Todo lo que se encontró sobre Xnova y los juegos parecidos: historia, reglas con sus números, cómo funciona el farmeo, qué enganchaba y qué espantaba a los jugadores, y qué existe ya en Telegram |
 | `xnova_bot/` | El código del bot |
 | `tests/` | Las pruebas: reglas del juego y el bot completo contra un Telegram simulado |
+| [piloto/](piloto/README.md) | **Aparte del juego:** un programa para tu computadora que juega **@Xnova_Elite_bot** (el otro Xnova de Telegram) desde tu cuenta: construye, investiga y farmea con tus flotas guardadas. No se sube a Railway |
 | `Dockerfile` | Cómo arma Railway el servidor |
 | `.env.example` | Los nombres de las variables (sin valores) |
 
