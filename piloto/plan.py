@@ -25,16 +25,33 @@ def parse_plan(items: list[str]) -> list[Goal]:
     return goals
 
 
+def pending_goals(plan: list[Goal], levels: dict[str, int], energy: int | None = None,
+                  power_plant: str = "") -> list[Goal]:
+    """What is still missing, in the order of the plan: the next level of each thing not reached yet. Things
+    whose name is not on the screen are left out (not unlocked yet). With negative energy the mines produce
+    less, so the power plant goes first."""
+    pending: list[Goal] = []
+    if energy is not None and energy < 0 and power_plant in levels:
+        pending.append(Goal(power_plant, levels[power_plant] + 1))
+    for goal in plan:
+        if goal.name in levels and levels[goal.name] < goal.level and all(g.name != goal.name for g in pending):
+            pending.append(goal)
+    return pending
+
+
 def next_goal(plan: list[Goal], levels: dict[str, int], energy: int | None = None,
               power_plant: str = "") -> Goal | None:
-    """The first goal of the plan not reached yet. Goals whose name is not on the screen are skipped (not
-    unlocked yet). With negative energy the mines produce less, so the power plant goes first."""
-    if energy is not None and energy < 0 and power_plant in levels:
-        return Goal(power_plant, levels[power_plant] + 1)
-    for goal in plan:
-        if goal.name in levels and levels[goal.name] < goal.level:
-            return goal
-    return None
+    """The most wanted thing still missing (or None)."""
+    pending = pending_goals(plan, levels, energy, power_plant)
+    return pending[0] if pending else None
+
+
+PAID_WITH = ("metal", "cristal", "deuterio")
+
+
+def affordable(cost: dict[str, int], have: dict[str, int]) -> bool:
+    """Whether what you have pays this cost (energy is not spent, so it does not count)."""
+    return all(have.get(k, 0) >= v for k, v in cost.items() if k in PAID_WITH)
 
 
 # --- farming --------------------------------------------------------------------------------------------

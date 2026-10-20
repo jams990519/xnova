@@ -2,8 +2,8 @@
 
 Un programa que corre **en tu computadora** y juega **@Xnova_Elite_bot** desde **tu propia cuenta de Telegram**, como si tocaras tú los botones:
 
-- 🏗️ **Construye** edificios siguiendo tu plan (el primero de la lista que todavía no llegó a su nivel). Si la energía queda en negativo, primero la Planta solar.
-- 🔬 **Investiga** siguiendo tu plan.
+- 🏗️ **Construye lo que ya alcanza**: en cada vuelta lee tus recursos, mira qué falta de tu plan y cuánto cuesta, y pone a construir lo primero de la lista que ya se puede pagar. Si lo más importante todavía no alcanza, construye lo siguiente en vez de quedarse esperando. Si la energía queda en negativo, primero la Planta solar. Si ya hay algo construyéndose, espera.
+- 🔬 **Investiga** igual, con tu plan de investigación.
 - 🚀 **Farmea**: vuelve a mandar las flotas que guardaste en el juego (Flotas → Mis flotas), cuando hay ranuras libres, **sin pasar de 6 ataques al mismo planeta en 24 h** (la regla del juego; por defecto se queda en 5). Si el juego no deja atacar un planeta (escudo por inactividad, protección, vacaciones…), lo salta 24 horas.
 - 🛰️ Te manda a tus **Mensajes guardados** lo que hizo en cada vuelta.
 
@@ -69,6 +69,7 @@ Recuerda las reglas del juego: no se puede atacar a quien tiene menos de 1/5 de 
 
 - **«No encontré el botón de …»**: el juego llama distinto a ese edificio. Pon el nombre como sale en el juego en el plan (sin emoji).
 - **«No encontré "Edificios" …»**: cambia el nombre en `[etiquetas]`, o pon esa tecla entre tus seis de abajo (Mi cuenta → Teclas de abajo).
+- **No construye nada aunque alcance**: el piloto no pudo leer el costo o tus recursos. Mira en `pantallas.txt` cómo escribe el juego el costo (por ejemplo «Precio:») y agrégalo en `[lectura] coste`.
 - **Lee mal los recursos o la energía**: agrega en `[lectura.recursos]` la palabra o el emoji con que el juego los escribe (por ejemplo `metal = ["metal", "🔩"]`).
 - Para todo lo demás: corre `python -m piloto explorar` y pásale `piloto\datos\pantallas.txt` a Claude.
 

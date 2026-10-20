@@ -50,11 +50,14 @@ async def play(client, cfg: config.Settings, dry_run: bool, once: bool) -> None:
             lines = await pilot.round()
         except (ConnectionError, OSError) as e:
             lines = [f"⚠️ Sin conexión ({e}); pruebo en la próxima vuelta."]
-        for line in lines or ["· Nada que hacer en esta vuelta."]:
+        if pilot.resources_line():
+            say(pilot.resources_line())
+        for line in lines or ["· Nada que alcance todavía; reviso en la próxima vuelta."]:
             say(line)
         if lines and cfg.saved_messages and not dry_run:
             try:
-                await client.send_message("me", "🛰️ Piloto Xnova\n" + "\n".join(lines))
+                summary = [*lines, pilot.resources_line()] if pilot.resources_line() else lines
+                await client.send_message("me", "🛰️ Piloto Xnova\n" + "\n".join(summary))
             except Exception as e:  # the summary is a nicety: never stop the pilot for it
                 say(f"(no pude mandarte el resumen: {e})")
         if once:

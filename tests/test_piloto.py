@@ -26,6 +26,13 @@ class FakeXnova:
         self.levels = {"Planta solar": 0, "Mina de metal": 0, "Mina de cristal": 0, "Sintetizador de deuterio": 0}
         self.research = {"Tecnología de energía": 0, "Motor de combustión": 0}
         self.energy = 0
+        self.res = {"metal": 5000, "cristal": 3000, "deuterio": 1000}
+        self.costs = {"Planta solar": {"metal": 75, "cristal": 30}, "Mina de metal": {"metal": 60, "cristal": 15},
+                      "Mina de cristal": {"metal": 48, "cristal": 24},
+                      "Sintetizador de deuterio": {"metal": 225, "cristal": 75},
+                      "Tecnología de energía": {"cristal": 800, "deuterio": 400},
+                      "Motor de combustión": {"metal": 400, "deuterio": 600}}
+        self.cost_words = True  # False: the cost only with emoji, so the pilot cannot read it
         self.busy = False
         self.afford = True
         self.in_flight, self.max_fleets = 0, 2
@@ -43,8 +50,9 @@ class FakeXnova:
         return Screen(text, buttons, keyboard or [], self._id)
 
     def buildings(self) -> Screen:
-        text = (f"🏗️ Edificios — Planeta Nova [1:20:5]\n🔩 Metal: 5.000 · 💎 Cristal: 3.000 · 🧪 Deuterio: 1.000 · "
-                f"⚡ Energía: {self.energy}")
+        r = self.res
+        text = (f"🏗️ Edificios — Planeta Nova [1:20:5]\n🔩 Metal: {r['metal']} · 💎 Cristal: {r['cristal']} · "
+                f"🧪 Deuterio: {r['deuterio']} · ⚡ Energía: {self.energy}")
         if self.busy:
             text += "\n🔨 En construcción: termina a las 12:30"
         icons = {"Mina de metal": "⛏️", "Mina de cristal": "💎", "Sintetizador de deuterio": "🧪", "Planta solar": "☀️"}
@@ -88,11 +96,16 @@ class FakeXnova:
                 return self._screen(("cola",), "📋 Cola vacía", [])
             lv = (self.levels if kind[0] == "edificios" else self.research)[name]
             verb = "🔨 Construir" if kind[0] == "edificios" else "🔬 Investigar"
-            return self._screen(("detalle", kind[0], name), f"{name} — nivel {lv}\nCoste: 🔩 60 · 💎 15",
+            icons = {"metal": "🔩", "cristal": "💎", "deuterio": "🧪"}
+            cost = " · ".join(f"{k.capitalize() if self.cost_words else icons[k]} {v}" for k, v in self.costs[name].items())
+            return self._screen(("detalle", kind[0], name), f"{name} — nivel {lv}\nCoste: {cost}\nTiempo: 2 min",
                                 [[f"{verb} nivel {lv + 1}"], ["💣 Derribar"]])
         if kind[0] == "detalle":
-            if not self.afford:
+            cost = self.costs[kind[2]]
+            if not self.afford or any(self.res[k] < v for k, v in cost.items()):
                 return Screen(screen.text, screen.buttons, [], screen.msg_id, alert="❌ No tienes suficientes recursos.")
+            for k, v in cost.items():
+                self.res[k] -= v
             (self.levels if kind[1] == "edificios" else self.research)[kind[2]] += 1
             self.busy = kind[1] == "edificios"
             return self._screen(("hecho",), f"✅ {kind[2]} añadido a la cola.", [])
@@ -187,6 +200,32 @@ def test_builds_the_plan_in_order_one_at_a_time():
     game.afford = False
     assert run(pilot.round()) == []  # not enough resources: tries again next round, no noise
     assert not any("Derribar" in t for t in game.taps)
+
+
+def test_builds_what_the_resources_allow_when_the_first_is_not_affordable():
+    game = FakeXnova()
+    game.res = {"metal": 100, "cristal": 100, "deuterio": 0}
+    game.costs["Planta solar"] = {"metal": 500, "cristal": 200}  # first of the plan, but it does not reach
+    pilot = Pilot(game, settings(investigar={"activo": False}))
+    assert run(pilot.round()) == ["🏗️ Construyendo Mina de metal al nivel 1."]
+    assert not any("Construir" in t for t in game.taps[:-1])  # it saw the cost: did not even try the solar plant
+    assert pilot.resources_line() == "📦 Recursos: 🔩 100 · 💎 100 · 🧪 0 · ⚡ 0"
+    game.busy = False
+    game.res = {"metal": 10, "cristal": 10, "deuterio": 0}
+    assert run(pilot.round()) == []  # nothing reaches: waits, without noise
+    assert game.levels["Mina de metal"] == 1
+
+
+def test_when_the_cost_cannot_be_read_it_tries_in_order():
+    game = FakeXnova()
+    game.cost_words = False
+    game.res = {"metal": 100, "cristal": 100, "deuterio": 0}
+    game.costs["Planta solar"] = {"metal": 500, "cristal": 200}
+    pilot = Pilot(game, settings(investigar={"activo": False}))
+    assert run(pilot.round()) == ["🏗️ Construyendo Mina de metal al nivel 1."]
+    assert [t for t in game.taps if "Construir" in t] == ["🔨 Construir nivel 1", "🔨 Construir nivel 1"]
+    dry = Pilot(FakeXnova(), settings(investigar={"activo": False}), dry_run=True)
+    assert run(dry.round()) == ["🏗️ (ensayo) Construiría Planta solar al nivel 1 (alcanza)."]
 
 
 def test_negative_energy_builds_power_first():

@@ -26,10 +26,12 @@ DEFAULT_READING = {
               "en camino", "despego", "despega", "agregado", "anadido", "en marcha", "iniciado"],
     "falta": ["no tienes", "insuficiente", "no alcanza", "no hay suficiente", "sin naves", "no hay naves",
               "cola llena", "cola esta llena", "maximo de flotas", "no hay ranuras", "ranuras ocupadas",
-              "ya se esta construyendo", "ya hay una construccion", "ya estas investigando"],
+              "ya se esta construyendo", "ya hay una construccion", "ya estas investigando", "requisitos",
+              "no cumples"],
     "bloqueado": ["escudo", "proteccion", "vacaciones", "no puedes atacar", "no se puede atacar",
                   "maximo de ataques", "limite de ataques", "demasiado debil", "demasiado fuerte", "inactividad"],
     "ranuras": ["flotas", "flota", "ranuras", "misiones", "slots"],
+    "coste": ["coste", "costo", "cuesta", "precio"],
 }
 
 DEFAULT_LABELS = {
@@ -48,6 +50,7 @@ class BuildSettings:
     plan: list[Goal]
     max_queue: int = 1
     power_plant: str = ""
+    look: int = 6  # how many missing things it checks per round, looking for one that is affordable
 
 
 @dataclass
@@ -108,9 +111,10 @@ def from_dict(raw: dict) -> Settings:
         pause=max(1.0, float(pace.get("pausa_segundos", 2.5))),
         wait=float(pace.get("espera_respuesta", 15)),
         build=BuildSettings(bool(build.get("activo", True)), parse_plan(build.get("plan", [])),
-                            int(build.get("max_en_cola", 1)), str(build.get("planta_de_energia", ""))),
+                            int(build.get("max_en_cola", 1)), str(build.get("planta_de_energia", "")),
+                            max(1, int(build.get("revisar", 6)))),
         research=BuildSettings(bool(research.get("activo", True)), parse_plan(research.get("plan", [])),
-                               int(research.get("max_en_cola", 1))),
+                               int(research.get("max_en_cola", 1)), look=max(1, int(research.get("revisar", 6)))),
         farm=FarmSettings(bool(farm.get("activo", False)),
                           [Target(str(t["flota"]), str(t["coordenadas"])) for t in farm.get("objetivo", [])],
                           max_per_day, int(farm.get("dejar_libres", 0))),

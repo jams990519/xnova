@@ -25,6 +25,13 @@ class Pilot:
         self.now = now
         saved = json.loads(state_path.read_text()) if state_path and state_path.is_file() else {}
         self.book = P.RaidBook.from_json(saved.get("ataques", {}))
+        self.resources: dict[str, int] = {}  # the last ones read
+        self._warned: set[str] = set()  # problems already told once
+
+    def resources_line(self) -> str:
+        icons = {"metal": "🔩", "cristal": "💎", "deuterio": "🧪", "energia": "⚡"}
+        parts = [f"{icons[k]} {self.resources[k]:,}".replace(",", ".") for k in icons if k in self.resources]
+        return f"📦 Recursos: {' · '.join(parts)}" if parts else ""
 
     def save(self) -> None:
         if self.state_path:
@@ -68,44 +75,56 @@ class Pilot:
     # --- building and research ------------------------------------------------------------------------
 
     async def build(self, kind: str) -> str | None:
-        """kind: 'edificios' or 'investigacion'. One step of the plan, if it can be done now."""
+        """kind: 'edificios' or 'investigacion'. Looks at the resources and at what is still missing, and puts
+        to build the first thing of the plan that can be paid now: if the most wanted one is not affordable
+        yet, the next one goes instead of waiting."""
         s = self.cfg.build if kind == "edificios" else self.cfg.research
         if not s.on or not s.plan:
             return None
         emoji, doing, verb = TITLES[kind]
+        reading = self.cfg.reading
         screen = await self.open_section(kind)
-        if s.max_queue <= 1 and parse.contains_any(screen.text, self.cfg.reading["ocupado"]):
+        if s.max_queue <= 1 and parse.contains_any(screen.text, reading["ocupado"]):
             return None  # something is already being built: nothing to do this round
         names = [g.name for g in s.plan] + ([s.power_plant] if s.power_plant else [])
         levels = parse.levels(parse.screen_lines(screen.text, screen.labels), names)
-        energy = parse.resources(screen.everything, self.cfg.reading["recursos"]).get("energia")
-        goal = P.next_goal(s.plan, levels, energy, s.power_plant)
-        if goal is None:
-            return None
-        target = levels.get(goal.name, 0) + 1
-        button = screen.find(goal.name)
-        if button is None:
-            return f"{emoji} No encontré el botón de «{goal.name}»."
-        detail = await self.game.tap(screen, button)
-        action = self._first(detail, "construir" if kind == "edificios" else "investigar")
-        if action is None:
-            if self._outcome(detail) == "falta":
-                return None  # not affordable yet
-            return f"{emoji} En «{goal.name}» no vi el botón para {verb.lower()}: «{self._said(detail)}»."
-        if self.dry_run:
-            return f"{emoji} (ensayo) {verb}ía {goal.name} al nivel {target}."
-        done = await self.game.tap(detail, action)
-        result = self._outcome(done)
-        if result == "?":
-            confirm = self._first(done, "confirmar")
-            if confirm:
-                done = await self.game.tap(done, confirm)
-                result = self._outcome(done)
-        if result == "ok":
-            return f"{emoji} {doing} {goal.name} al nivel {target}."
-        if result == "falta":
-            return None  # not enough resources (or the queue is full): next round
-        return f"{emoji} Toqué {verb} en {goal.name}; el bot dijo: «{self._said(done)}»."
+        have = parse.resources(screen.everything, reading["recursos"])
+        if have:
+            self.resources = have
+        pending = P.pending_goals(s.plan, levels, have.get("energia"), s.power_plant)
+        problem = None
+        for goal in pending[:s.look]:
+            button = screen.find(goal.name)
+            if button is None:
+                continue
+            target = levels.get(goal.name, 0) + 1
+            detail = await self.game.tap(screen, button)
+            before, _ = parse.split_cost(detail.text, reading["coste"])
+            mine = have or parse.resources(before, reading["recursos"])  # what you have, if this screen says it
+            cost = parse.costs(detail.text, reading["recursos"], reading["coste"])
+            known = bool(cost) and any(k in mine for k in P.PAID_WITH)
+            action = self._first(detail, "construir" if kind == "edificios" else "investigar")
+            if action is None and self._outcome(detail) != "falta" and goal.name not in self._warned:
+                self._warned.add(goal.name)
+                problem = f"{emoji} En «{goal.name}» no vi el botón para {verb.lower()}: «{self._said(detail)}»."
+            if action is None or (known and not P.affordable(cost, mine)):
+                screen = await self.open_section(kind)  # not this one: back to the list for the next
+                continue
+            if self.dry_run:
+                return f"{emoji} (ensayo) {verb}ía {goal.name} al nivel {target}{' (alcanza)' if known else ''}."
+            done = await self.game.tap(detail, action)
+            result = self._outcome(done)
+            if result == "?":
+                confirm = self._first(done, "confirmar")
+                if confirm:
+                    done = await self.game.tap(done, confirm)
+                    result = self._outcome(done)
+            if result == "ok":
+                return f"{emoji} {doing} {goal.name} al nivel {target}."
+            if result != "falta":
+                return f"{emoji} Toqué {verb} en {goal.name}; el bot dijo: «{self._said(done)}»."
+            screen = await self.open_section(kind)  # it did not reach after all: try the next one
+        return problem  # nothing affordable now: next round
 
     # --- farming -----------------------------------------------------------------------------------------
 

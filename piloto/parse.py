@@ -30,6 +30,25 @@ def resources(text: str, aliases: dict[str, list[str]]) -> dict[str, int]:
     return found
 
 
+def split_cost(text: str, words: list[str]) -> tuple[str, str]:
+    """(what comes before the cost, the cost part) of a detail screen like 'Tienes… / Coste: Metal 60 …'.
+    Without a cost word, everything is 'before'."""
+    low = fold(text)
+    starts = [m.start() for w in words if w for m in [re.search(r"\b" + re.escape(fold(w)), low)] if m]
+    if not starts:
+        return text, ""
+    cut = min(starts)
+    rest = text[cut:]
+    end = re.search(r"\n\s*\n|tiempo|duraci[oó]n|tardar", fold(rest))
+    return text[:cut], rest[:end.start()] if end else rest
+
+
+def costs(text: str, aliases: dict[str, list[str]], words: list[str]) -> dict[str, int]:
+    """What the next level costs, read from the part of the screen after 'Coste'/'Costo'/'Precio' ({} if the
+    screen does not say)."""
+    return resources(split_cost(text, words)[1], aliases)
+
+
 _LEVEL = (
     re.compile(r"\b(?:nivel|niv|nv|lvl|lv)\.?\s*:?\s*(\d+)"),  # 'Nivel 5', 'Nv. 5'
     re.compile(r"^[^\w]{0,4}(\d+)\b(?![.,]\d)"),  # right after the name: 'Mina de metal 5', '… (5)', '… · 5'

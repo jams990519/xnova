@@ -17,7 +17,10 @@ espera_respuesta = 15  # segundos que espera la respuesta del bot
 activo = true
 max_en_cola = 1        # con 1, si ya hay algo construyéndose no mete nada más
 planta_de_energia = "Planta solar"  # si la energía queda en negativo, esto va primero
-# En orden: el primero que todavía no llegó a su nivel es el que se construye.
+revisar = 6            # cuántas cosas que faltan mira en cada vuelta, buscando una que ya alcance
+# Lo que quieres tener, en orden de prioridad (cada cosa con el nivel al que quieres llegar).
+# En cada vuelta el piloto mira tus recursos y lo que cuesta cada cosa que falta, y pone a construir la
+# primera de esta lista que ya alcance: si la más importante todavía no alcanza, no se queda esperando.
 # Los nombres tienen que ser como en el juego (sin emoji). «explorar» te muestra cómo se llaman.
 plan = [
   "Planta solar 1", "Mina de metal 1", "Mina de metal 2", "Planta solar 2", "Mina de metal 3",
@@ -32,6 +35,7 @@ plan = [
 [investigar]
 activo = true
 max_en_cola = 1
+revisar = 6
 plan = [
   "Tecnología de energía 1", "Motor de combustión 2", "Tecnología de espionaje 2",
   "Tecnología de computación 2", "Motor de combustión 4", "Tecnología de energía 3",
