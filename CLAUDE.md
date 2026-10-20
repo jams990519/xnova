@@ -6,6 +6,7 @@ Toda sesión de IA que trabaje en este repositorio lee esto primero. Una orden n
 
 - **Xnova para Telegram:** llevar Xnova, un juego web de estrategia espacial en el que se farmea (de la familia de OGame), a **Telegram, en formato de texto**.
 - **Es un proyecto nuevo y aparte.** No se mezcla con ningún otro proyecto del dueño (ni Lost Realms / RPGDungeon ni TowerWars): no se leen sus documentos ni se toman sus reglas para este (pedido del dueño, 8-oct-2026).
+- **El piloto (`piloto/`):** un programa aparte, pedido por el dueño el 20-oct-2026, que corre en su computadora y juega **@Xnova_Elite_bot** (el Xnova de otra persona en Telegram) desde la cuenta del dueño: construye, investiga y farmea. No es parte del bot de este repositorio, no se sube a Railway (el `Dockerfile` solo copia `xnova_bot/`) y nunca toca derribar, cancelar, vacaciones, reubicar, vender ni comprar. Instrucciones en [piloto/README.md](piloto/README.md).
 - **Estado:** investigación terminada en [investigacion/](investigacion/README.md). Primera versión del bot escrita en `xnova_bot/`, lista para Railway (ver [README](README.md)). Las reglas que se apartan de Xnova son decisiones provisionales, listadas en el README: el dueño las confirma o las cambia.
 
 ## 2. Notion: todo se sube solo y como texto

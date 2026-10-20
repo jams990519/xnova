@@ -8,3 +8,8 @@ __pycache__/
 .env
 .venv/
 venv/
+# Piloto (en tu computadora): tu configuración, tu sesión de Telegram y lo que va anotando
+piloto/piloto.toml
+piloto/datos/
+*.session
+*.session-journal

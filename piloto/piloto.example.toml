@@ -1,0 +1,73 @@
+# Piloto para @Xnova_Elite_bot — tu configuración.
+# Copia este archivo como «piloto.toml» (en esta misma carpeta) y rellénalo. piloto.toml NO se sube a GitHub.
+
+[telegram]
+# De https://my.telegram.org → API development tools (crea una app con cualquier nombre).
+# NUNCA los pegues en un chat ni se los pases a nadie.
+api_id = 0
+api_hash = ""
+bot = "Xnova_Elite_bot"
+
+[ritmo]
+cada_minutos = 10      # cada cuánto da una vuelta (construir, investigar y farmear)
+pausa_segundos = 2.5   # mínimo entre toque y toque, para no saturar al bot (nunca menos de 1)
+espera_respuesta = 15  # segundos que espera la respuesta del bot
+
+[construir]
+activo = true
+max_en_cola = 1        # con 1, si ya hay algo construyéndose no mete nada más
+planta_de_energia = "Planta solar"  # si la energía queda en negativo, esto va primero
+# En orden: el primero que todavía no llegó a su nivel es el que se construye.
+# Los nombres tienen que ser como en el juego (sin emoji). «explorar» te muestra cómo se llaman.
+plan = [
+  "Planta solar 1", "Mina de metal 1", "Mina de metal 2", "Planta solar 2", "Mina de metal 3",
+  "Mina de cristal 1", "Mina de metal 4", "Planta solar 3", "Mina de cristal 2", "Mina de metal 5",
+  "Planta solar 4", "Mina de cristal 3", "Sintetizador de deuterio 1", "Mina de metal 6", "Planta solar 5",
+  "Mina de cristal 4", "Sintetizador de deuterio 2", "Fábrica de robots 1", "Laboratorio 1",
+  "Mina de metal 7", "Planta solar 6", "Mina de cristal 5", "Fábrica de robots 2", "Hangar 2",
+  "Sintetizador de deuterio 4", "Mina de metal 9", "Planta solar 8", "Mina de cristal 7", "Laboratorio 3",
+  "Mina de metal 12", "Planta solar 11", "Mina de cristal 10", "Sintetizador de deuterio 8",
+]
+
+[investigar]
+activo = true
+max_en_cola = 1
+plan = [
+  "Tecnología de energía 1", "Motor de combustión 2", "Tecnología de espionaje 2",
+  "Tecnología de computación 2", "Motor de combustión 4", "Tecnología de energía 3",
+  "Tecnología de computación 4", "Motor de impulso 2",
+]
+
+[farmear]
+# Primero guarda en el juego una flota por cada planeta a saquear (Flotas → Crear una flota, mándala una vez
+# y luego «Guardar el último envío»). El piloto vuelve a mandar esas flotas guardadas cuando hay ranuras.
+activo = false
+max_ataques_por_dia = 5  # el juego permite como mucho 6 al mismo planeta cada 24 h
+dejar_libres = 0         # ranuras de flota que el piloto deja libres para ti
+
+# Un bloque por cada planeta (copia y cambia):
+# [[farmear.objetivo]]
+# flota = "Granja 1"        # el nombre con que aparece en Flotas → Mis flotas
+# coordenadas = "1:45:8"    # el planeta al que va (para contar los ataques del día)
+
+[avisos]
+mensajes_guardados = true  # te manda a tus Mensajes guardados lo que hizo en cada vuelta
+
+# Si el juego llama distinto a sus botones, se cambia aquí (se buscan sin emoji ni acentos).
+[etiquetas]
+menu = "Menú"
+edificios = "Edificios"
+investigacion = "Investigación"
+flotas = "Flotas"
+mis_flotas = "Mis flotas"
+construir = ["Construir", "Mejorar", "Ampliar", "Subir"]
+investigar = ["Investigar", "Mejorar", "Subir"]
+enviar = ["Repetir", "Enviar", "Atacar", "Lanzar"]
+confirmar = ["Confirmar", "Sí, enviar", "Enviar flota"]
+
+# Cómo se leen las pantallas (palabras que usa el juego). Se ajusta después de «explorar».
+[lectura.recursos]
+metal = ["metal"]
+cristal = ["cristal"]
+deuterio = ["deuterio"]
+energia = ["energía"]
